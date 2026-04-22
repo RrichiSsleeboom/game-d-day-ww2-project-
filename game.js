@@ -10,144 +10,6 @@
   const app = document.getElementById('app');
   if (!app) return;
 
-  // --- SVG: 10 distinct soldier silhouettes (distant, backlit) ---
-  // viewBox 1000x200, each figure occupies ~90px slot.
-  const SILHOUETTES_SVG = `
-    <svg viewBox="0 0 1000 200" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
-      <defs>
-        <linearGradient id="silGrad" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%"  stop-color="#1a0e08"/>
-          <stop offset="100%" stop-color="#050302"/>
-        </linearGradient>
-      </defs>
-      <g fill="url(#silGrad)" stroke="#000" stroke-width="0.5">
-        <!-- 1. Medic crouching (red cross on back) -->
-        <g transform="translate(40,60)">
-          <ellipse cx="20" cy="18" rx="8" ry="9"/>
-          <path d="M10,28 Q12,52 18,80 L28,80 Q30,58 30,30 Q30,26 26,25 L14,25 Q10,26 10,28 Z"/>
-          <rect x="14" y="40" width="12" height="14" fill="#5a1010"/>
-          <rect x="18" y="36" width="4" height="22" fill="#5a1010"/>
-          <rect x="12" y="44" width="16" height="4" fill="#5a1010"/>
-          <path d="M8,80 L6,110 L12,110 L16,82 Z"/>
-          <path d="M32,80 L34,110 L28,110 L24,82 Z"/>
-        </g>
-
-        <!-- 2. Officer pointing forward -->
-        <g transform="translate(150,30)">
-          <ellipse cx="22" cy="14" rx="8" ry="9"/>
-          <path d="M22,5 Q34,6 36,14 L38,18 L32,18 Q30,10 22,9 Q14,10 12,18 L6,18 Q8,6 22,5 Z"/>
-          <path d="M14,24 L14,70 L30,70 L30,24 Q30,22 26,22 L18,22 Q14,22 14,24 Z"/>
-          <path d="M30,36 Q50,30 70,28 L72,34 Q50,38 30,42 Z"/>
-          <path d="M12,80 L10,120 L16,120 L20,82 Z"/>
-          <path d="M32,80 L34,120 L28,120 L24,82 Z"/>
-          <rect x="14" y="68" width="16" height="14"/>
-        </g>
-
-        <!-- 3. Rifleman advancing -->
-        <g transform="translate(260,40)">
-          <ellipse cx="22" cy="14" rx="8" ry="9"/>
-          <path d="M14,24 L14,68 L32,68 L32,24 Q32,22 28,22 L18,22 Q14,22 14,24 Z"/>
-          <path d="M10,30 L8,60 L14,60 L16,32 Z"/>
-          <path d="M32,32 Q48,26 64,22 L66,26 Q50,34 34,38 Z"/>
-          <rect x="50" y="22" width="26" height="3" fill="#2a1a0c"/>
-          <rect x="44" y="24" width="10" height="6" fill="#3a2410"/>
-          <path d="M12,74 L8,118 L16,118 L20,76 Z"/>
-          <path d="M32,74 L36,118 L28,118 L24,76 Z"/>
-          <rect x="14" y="66" width="18" height="12"/>
-        </g>
-
-        <!-- 4. Radio operator (hunched with antenna) -->
-        <g transform="translate(370,45)">
-          <ellipse cx="22" cy="16" rx="8" ry="9"/>
-          <path d="M14,28 Q10,44 14,68 L32,68 Q36,44 32,28 Q32,24 28,24 L18,24 Q14,24 14,28 Z"/>
-          <rect x="10" y="34" width="10" height="18" fill="#2a2010"/>
-          <line x1="14" y1="34" x2="6" y2="0" stroke="#2a1a0c" stroke-width="1.2"/>
-          <path d="M12,74 L10,118 L16,118 L20,76 Z"/>
-          <path d="M32,74 L34,118 L28,118 L24,76 Z"/>
-          <rect x="14" y="66" width="18" height="12"/>
-        </g>
-
-        <!-- 5. Sapper with bangalore (horizontal tube) -->
-        <g transform="translate(470,50)">
-          <ellipse cx="22" cy="14" rx="7" ry="8"/>
-          <path d="M15,22 L15,62 L29,62 L29,22 Q29,20 26,20 L18,20 Q15,20 15,22 Z"/>
-          <rect x="5" y="40" width="50" height="4" fill="#1a1008"/>
-          <circle cx="5" cy="42" r="3" fill="#1a1008"/>
-          <path d="M14,66 L12,110 L18,110 L20,68 Z"/>
-          <path d="M30,66 L32,110 L26,110 L24,68 Z"/>
-        </g>
-
-        <!-- 6. BAR gunner prone -->
-        <g transform="translate(560,88)">
-          <ellipse cx="14" cy="12" rx="7" ry="6"/>
-          <path d="M10,16 L48,22 L48,30 L10,26 Q6,22 10,16 Z"/>
-          <rect x="40" y="18" width="40" height="4" fill="#2a1a0c"/>
-          <rect x="30" y="20" width="8" height="6" fill="#3a2410"/>
-          <path d="M48,26 L70,32 L70,36 L48,32 Z"/>
-        </g>
-
-        <!-- 7. Scout running (mid-stride) -->
-        <g transform="translate(660,38)">
-          <ellipse cx="22" cy="12" rx="7" ry="8"/>
-          <path d="M14,20 L16,60 L28,60 L30,20 Q30,18 26,18 L18,18 Q14,18 14,20 Z"/>
-          <path d="M10,26 L2,50 L8,52 L14,28 Z"/>
-          <path d="M30,26 L44,20 L46,24 L32,30 Z"/>
-          <path d="M16,62 L6,100 L14,102 L22,64 Z"/>
-          <path d="M26,62 L38,108 L32,112 L22,64 Z"/>
-        </g>
-
-        <!-- 8. Wounded soldier on one knee -->
-        <g transform="translate(760,60)">
-          <ellipse cx="22" cy="14" rx="8" ry="9"/>
-          <path d="M14,24 Q12,42 18,58 L28,58 Q34,42 32,24 Q32,22 28,22 L18,22 Q14,22 14,24 Z"/>
-          <path d="M10,32 L6,56 L12,58 L16,34 Z"/>
-          <path d="M16,60 L8,96 L18,98 L24,62 Z"/>
-          <path d="M28,58 L44,82 L40,88 L24,66 Z"/>
-        </g>
-
-        <!-- 9. Flag bearer (pole raised) -->
-        <g transform="translate(840,30)">
-          <ellipse cx="22" cy="14" rx="8" ry="9"/>
-          <path d="M14,24 L14,68 L32,68 L32,24 Q32,22 28,22 L18,22 Q14,22 14,24 Z"/>
-          <rect x="34" y="0" width="2" height="70" fill="#1a1008"/>
-          <path d="M36,2 L62,6 L58,22 L36,20 Z" fill="#3a2418"/>
-          <path d="M8,80 L6,118 L12,118 L16,82 Z"/>
-          <path d="M32,80 L34,118 L28,118 L24,82 Z"/>
-          <rect x="14" y="68" width="18" height="12"/>
-        </g>
-
-        <!-- 10. Engineer carrying demo pack -->
-        <g transform="translate(930,45)">
-          <ellipse cx="22" cy="14" rx="8" ry="9"/>
-          <path d="M14,24 L14,68 L32,68 L32,24 Q32,22 28,22 L18,22 Q14,22 14,24 Z"/>
-          <rect x="6" y="30" width="14" height="22" fill="#1a1008"/>
-          <path d="M12,74 L10,114 L16,114 L20,76 Z"/>
-          <path d="M32,74 L34,114 L28,114 L24,76 Z"/>
-          <rect x="14" y="66" width="18" height="12"/>
-        </g>
-      </g>
-    </svg>
-  `;
-
-  // --- SVG: Czech hedgehog (crossed steel beams) ---
-  const HEDGEHOG_SVG = `
-    <svg viewBox="0 0 220 180" aria-hidden="true">
-      <defs>
-        <linearGradient id="beamGrad" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%"  stop-color="#3a2818"/>
-          <stop offset="50%" stop-color="#1a0e06"/>
-          <stop offset="100%" stop-color="#0a0604"/>
-        </linearGradient>
-      </defs>
-      <g stroke="#000" stroke-width="1" fill="url(#beamGrad)">
-        <polygon points="30,170 50,165 185,40 175,30"/>
-        <polygon points="190,170 170,168 50,40 60,30"/>
-        <polygon points="110,175 118,175 118,25 108,25"/>
-        <circle cx="110" cy="100" r="8" fill="#1a0e06"/>
-      </g>
-    </svg>
-  `;
-
   // --- SVG: POV gloved hands + rifle ---
   const POV_SVG = `
     <svg viewBox="0 0 800 320" aria-hidden="true">
@@ -231,21 +93,63 @@
     </svg>
   `;
 
+  // --- Photorealistic AI backdrop (generated in user's browser) ---
+  // Uses Pollinations.ai — free, no API key. The image is produced the
+  // first time the URL is hit, then cached on their CDN. If the service
+  // is unreachable the CSS gradient underneath shows through.
+  const BACKDROP_PROMPT = [
+    'hyperrealistic first-person POV view',
+    'D-Day Omaha Beach June 6 1944',
+    'soldier muddy gloved hands holding M1 Garand rifle',
+    'vaulting burning Czech hedgehog steel obstacle on sandy beach',
+    'US Army soldiers advancing through surf',
+    'medic crouching, officer pointing, radio operator, sapper with bangalore',
+    'BAR machine gunner prone, scout running, wounded soldier, flag bearer',
+    'combat engineer, rifleman advancing',
+    'massive explosions thick black smoke',
+    'water splashing bullet impacts',
+    'cinematic lighting overcast sky',
+    'Unreal Engine 5 photorealistic 8K sharp detail'
+  ].join(', ');
+
+  const BACKDROP_URL =
+    'https://image.pollinations.ai/prompt/' +
+    encodeURIComponent(BACKDROP_PROMPT) +
+    '?width=1920&height=1080&nologo=true&enhance=true&seed=19440606';
+
+  // --- Squad roster: 10 roles, always visible in HUD ---
+  const SQUAD = [
+    { icon: '⚕',  name: 'Medic',      status: 'ok' },
+    { icon: '★',  name: 'Officer',    status: 'ok' },
+    { icon: '⦿',  name: 'Radio Op',   status: 'ok' },
+    { icon: '⚒',  name: 'Sapper',     status: 'ok' },
+    { icon: '⚙',  name: 'BAR Gunner', status: 'ok' },
+    { icon: '➤',  name: 'Scout',      status: 'ok' },
+    { icon: '✚',  name: 'Wounded',    status: 'wounded' },
+    { icon: '⚑',  name: 'Flag Bearer',status: 'ok' },
+    { icon: '⚡',  name: 'Engineer',   status: 'ok' },
+    { icon: '⟦⟧', name: 'Rifleman',   status: 'ok' }
+  ];
+
+  function renderSquadRoster() {
+    return SQUAD.map(function (r) {
+      return '<li class="' + r.status + '">'
+           +   '<span class="icon">' + r.icon + '</span>'
+           +   '<span class="name">' + r.name + '</span>'
+           +   '<span class="dot-status" aria-hidden="true"></span>'
+           + '</li>';
+    }).join('');
+  }
+
   // --- Render: FPS intro screen ---
   function renderFpsIntro() {
     app.innerHTML = `
       <section class="screen-fps-intro" role="img"
-        aria-label="First-person view: a soldier's gloved hands grip an M1 Garand rifle while vaulting a burning steel obstacle on Omaha Beach. Ten soldiers in varied roles — medic, officer, radio operator, sapper, BAR gunner, scout, wounded, flag bearer, engineer, rifleman — advance through smoke and explosions. HUD shows objective, compass, health and ammo.">
+        aria-label="First-person view on Omaha Beach, D-Day. Soldier's gloved hands grip an M1 Garand rifle. Ten squad roles are active: medic, officer, radio operator, sapper, BAR gunner, scout, wounded soldier, flag bearer, engineer and rifleman. HUD shows objective, compass, health, ammo and squad status.">
 
-        <div class="fps-silhouettes">${SILHOUETTES_SVG}</div>
-
-        <div class="fps-explosion e1"></div>
-        <div class="fps-explosion e2"></div>
-        <div class="fps-explosion e3"></div>
+        <div class="fps-photo" style="background-image: url('${BACKDROP_URL}')"></div>
 
         <div class="fps-smoke"></div>
-
-        <div class="fps-hedgehog">${HEDGEHOG_SVG}</div>
 
         <div class="fps-splash">
           <span></span><span></span><span></span><span></span>
@@ -265,6 +169,11 @@
             <div class="fps-hud__compass-strip">
               <span>W</span><span>NW</span><span class="north">N</span><span>NE</span><span>E</span>
             </div>
+          </div>
+
+          <div class="fps-hud__corner fps-hud__squad">
+            <div class="fps-hud__squad-title">Easy Company · 10 Active</div>
+            <ul>${renderSquadRoster()}</ul>
           </div>
 
           <div class="fps-hud__corner fps-hud__health">
