@@ -6,7 +6,7 @@
    Touch: dual joysticks + fire button.
    ============================================================ */
 
-const BUILD_VERSION = 'v12 · battlefield';
+const BUILD_VERSION = 'v13 · swarm';
 
 // ============================================================
 // PER-ROLE WEAPON SVGs  (overlay at the bottom of the screen)
@@ -763,11 +763,14 @@ class FpsGame {
       this.makeJeep(8, 50);
     }
 
-    // Allies near player spawn
-    for (let i=0; i<5; i++) {
-      const ally = this.makeAllyMesh(rand(-12,12), 0, 55 + rand(-5, 5));
+    // Allies near player spawn — large initial wave
+    for (let i=0; i<18; i++) {
+      const ally = this.makeAllyMesh(rand(-50,50), 0, 55 + rand(-15, 25));
       this.allies.push(ally);
     }
+    // Continuous reinforcements
+    this.allyRespawnTimer = 1.8;
+    this.maxAllies = 28;
   }
 
   addObstacle(mesh, x, z, r) {
@@ -994,6 +997,8 @@ class FpsGame {
     g.position.set(x, 0.5, z);
     g.rotation.y = (yawOffset || 0);
     this.scene.add(g);
+    if (!this._destroyers) this._destroyers = [];
+    this._destroyers.push({ mesh: g, baseY: 0.5, phase: rand(0, Math.PI*2) });
     // Decorative only (no collision — too far away)
   }
 
@@ -1241,6 +1246,17 @@ class FpsGame {
         });
       }
     }
+    // Bob destroyer ships on the waves
+    if (this._destroyers) {
+      for (const d of this._destroyers) {
+        d.mesh.position.y = d.baseY + Math.sin(this.time * 0.6 + d.phase) * 0.3;
+        d.mesh.rotation.z = Math.sin(this.time * 0.4 + d.phase) * 0.025;
+      }
+    }
+    // Water plane gentle shimmer (subtle UV-less wobble via Y offset)
+    if (this.water) {
+      this.water.position.y = 0.02 + Math.sin(this.time * 1.2) * 0.04;
+    }
   }
 
   makeAllyMesh(x, y, z) {
@@ -1263,13 +1279,19 @@ class FpsGame {
     rifle.position.set(0.4, 1.35, 0.3); rifle.rotation.x = -0.1; g.add(rifle);
     g.position.set(x, y, z);
     this.scene.add(g);
-    return { mesh: g, hp: 50, dead: false, lastShot: 0, targetZ: rand(0, 20) };
+    return {
+      mesh: g, hp: 60, dead: false, lastShot: 0,
+      targetZ: rand(-15, 25),
+      speed: rand(2.4, 4.2),
+      wobble: rand(0, Math.PI * 2),
+      walkPhase: rand(0, Math.PI * 2)
+    };
   }
 
   // ---- ENEMIES ----
 
   spawnWave() {
-    const baseCount = 4 + this.wave;
+    const baseCount = 8 + this.wave * 3;  // ramped up — was 4 + wave
     const count = Math.round(baseCount * this.level.enemyCount);
     for (let i=0; i<count; i++) {
       const type = this.pickEnemyType();
@@ -1639,12 +1661,24 @@ class FpsGame {
       return true;
     });
 
-    // Allies
+    // Allies + reinforcements from the surf
     for (const a of this.allies) this.updateAlly(a, dt);
     this.allies = this.allies.filter(a => {
       if (a.dead) { this.scene.remove(a.mesh); return false; }
       return true;
     });
+    if (this.level.terrain === 'beach') {
+      this.allyRespawnTimer = (this.allyRespawnTimer || 2) - dt;
+      if (this.allyRespawnTimer <= 0 && this.allies.length < (this.maxAllies || 28)) {
+        // Spawn batch of 2-3 new allies coming out of the water
+        const n = Math.floor(rand(2, 4));
+        for (let i = 0; i < n; i++) {
+          const ally = this.makeAllyMesh(rand(-55, 55), 0, 78 + rand(-6, 6));
+          this.allies.push(ally);
+        }
+        this.allyRespawnTimer = rand(2.5, 4.5);
+      }
+    }
 
     // Tracers fade
     for (const t of this.tracers) {
@@ -1778,13 +1812,14 @@ class FpsGame {
     e.mesh.rotation.y = Math.atan2(dx, dz);
 
     // Move toward player but stop at range
+    let moved = false;
     if (!e.type.isStatic && d > 25) {
       const sp = e.type.speed;
       const ang = Math.atan2(dx, dz);
       const nx = e.x + Math.sin(ang) * sp * dt;
       const nz = e.z + Math.cos(ang) * sp * dt;
       // Avoid obstacles
-      if (!this.collidesObstacle(nx, nz, 0.6)) { e.x = nx; e.z = nz; }
+      if (!this.collidesObstacle(nx, nz, 0.6)) { e.x = nx; e.z = nz; moved = true; }
       e.mesh.position.x = e.x; e.mesh.position.z = e.z;
     }
 
@@ -1811,6 +1846,19 @@ class FpsGame {
         }, i * 110);
       }
     }
+    // Walk-bob animation
+    e.walkPhase = (e.walkPhase || 0) + dt * (moved ? 7 : 0);
+    if (moved) {
+      e.mesh.position.y = Math.abs(Math.sin(e.walkPhase)) * 0.16;
+      const legs = e.mesh.children[0];
+      if (legs && legs.geometry && legs.geometry.type === 'BoxGeometry' && !e.type.isStatic && !e.type.isVehicle) {
+        legs.rotation.x = Math.sin(e.walkPhase) * 0.35;
+      }
+    } else if (!e.type.isStatic && !e.type.isVehicle) {
+      e.mesh.position.y = 0;
+      const legs = e.mesh.children[0];
+      if (legs) legs.rotation.x = 0;
+    }
   }
 
   spawnEnemyTracer(from, to) {
@@ -1823,12 +1871,19 @@ class FpsGame {
 
   updateAlly(a, dt) {
     if (a.dead) return;
+    let moving = false;
     // Advance forward (negative Z)
     if (a.mesh.position.z > a.targetZ) {
-      a.mesh.position.z -= 1.0 * dt;
+      const sp = a.speed || 3.2;
+      a.mesh.position.z -= sp * dt;
+      // Slight lateral wander for organic feel
+      a.mesh.position.x += Math.sin(this.time * 1.5 + (a.wobble||0)) * 0.4 * dt;
+      moving = true;
+      // Face forward when running
+      a.mesh.rotation.y = Math.PI;
     } else {
       // Shoot at nearest enemy
-      let target = null, bd = 40;
+      let target = null, bd = 50;
       for (const e of this.enemies) {
         if (e.dead) continue;
         const dx = e.x - a.mesh.position.x, dz = e.z - a.mesh.position.z;
@@ -1838,15 +1893,30 @@ class FpsGame {
       if (target) {
         a.mesh.rotation.y = Math.atan2(target.x - a.mesh.position.x, target.z - a.mesh.position.z);
         const now = this.time * 1000;
-        if (now - a.lastShot > 1300) {
+        if (now - a.lastShot > 1100) {
           a.lastShot = now;
-          if (Math.random() < 0.5) this.hitEnemy(target, 10);
+          if (Math.random() < 0.55) this.hitEnemy(target, 12);
           this.spawnTracer(
             new THREE.Vector3(a.mesh.position.x, 1.6, a.mesh.position.z),
             new THREE.Vector3(target.x, 1.5, target.z)
           );
         }
       }
+    }
+    // Run/walk bob: bounce vertically and swing legs/body
+    a.walkPhase = (a.walkPhase || 0) + dt * (moving ? 9 : 0);
+    if (moving) {
+      a.mesh.position.y = Math.abs(Math.sin(a.walkPhase)) * 0.18;
+      // Lean forward slightly
+      a.mesh.rotation.z = Math.sin(a.walkPhase * 0.5) * 0.04;
+      // Animate legs if present (children indexed in makeAllyMesh — leg = first child)
+      const legs = a.mesh.children[0];
+      if (legs) legs.rotation.x = Math.sin(a.walkPhase) * 0.4;
+    } else {
+      a.mesh.position.y = 0;
+      a.mesh.rotation.z = 0;
+      const legs = a.mesh.children[0];
+      if (legs) legs.rotation.x = 0;
     }
   }
 
