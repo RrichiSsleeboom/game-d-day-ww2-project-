@@ -2846,3 +2846,133 @@ html, body { height: 100%; overscroll-behavior: none; }
   .dday-touch-ability { right: 8rem; }
   .dday-touch-reload  { right: 15rem; bottom: 1.5rem; }
 }
+
+/* ============================================================
+   D-Day v10 — Three.js FPS overlay
+   ============================================================ */
+
+.dday-pointer-prompt {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  pointer-events: none; /* canvas above handles click */
+}
+.dday-pointer-prompt h3 {
+  font-size: 2rem;
+  color: #d4a13a;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 24px rgba(212, 161, 58, 0.6);
+}
+.dday-pointer-prompt p { color: #c0b090; font-size: 0.95rem; max-width: 400px; line-height: 1.6; }
+.dday-pointer-prompt kbd {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+  color: #d4a13a;
+}
+
+.dday-fps-crosshair {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 24px; height: 24px;
+  margin: -12px 0 0 -12px;
+  pointer-events: none;
+  z-index: 6;
+}
+.dday-fps-crosshair::before, .dday-fps-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 235, 136, 0.85);
+  box-shadow: 0 0 4px rgba(255, 235, 136, 0.9);
+}
+.dday-fps-crosshair::before { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+.dday-fps-crosshair::after { top: 0; left: 50%; width: 2px; height: 100%; transform: translateX(-50%); }
+.dday-fps-crosshair {
+  background:
+    radial-gradient(circle, transparent 3px, transparent 5px);
+}
+
+.dday-fps-gun {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translate(-50%, 0);
+  width: 360px;
+  height: 220px;
+  pointer-events: none;
+  z-index: 5;
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: contain;
+  transition: transform 0.06s ease-out;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 220'>\
+    <defs><linearGradient id='g' x1='0' x2='0' y1='0' y2='1'><stop offset='0' stop-color='%234a5a38'/><stop offset='1' stop-color='%232a3420'/></linearGradient></defs>\
+    <path d='M40,220 L40,160 Q70,140 140,135 L210,150 L210,220 Z' fill='url(%23g)' stroke='%23000' stroke-width='1.5'/>\
+    <path d='M250,220 L250,150 Q300,140 360,150 L360,220 Z' fill='url(%23g)' stroke='%23000' stroke-width='1.5'/>\
+    <ellipse cx='160' cy='145' rx='32' ry='22' fill='%235a4028' stroke='%23000' stroke-width='1.5'/>\
+    <ellipse cx='244' cy='148' rx='30' ry='20' fill='%235a4028' stroke='%23000' stroke-width='1.5'/>\
+    <path d='M180,150 L320,150 L322,160 L180,160 Z' fill='%233a2818' stroke='%23000' stroke-width='1.2'/>\
+    <rect x='195' y='130' width='100' height='18' fill='%233a2818' stroke='%23000' stroke-width='1.2'/>\
+    <rect x='235' y='118' width='12' height='12' fill='%231a1008'/>\
+    <rect x='95' y='130' width='90' height='10' fill='%234a3420' stroke='%23000' stroke-width='1.2'/>\
+  </svg>");
+  filter: drop-shadow(0 -4px 12px rgba(0,0,0,0.6));
+}
+.dday-fps-gun.flashing::before {
+  content: '';
+  position: absolute;
+  top: 95px;
+  left: 78px;
+  width: 80px;
+  height: 80px;
+  background: radial-gradient(circle, rgba(255, 240, 140, 1) 0%, rgba(255, 120, 30, 0.5) 40%, rgba(0,0,0,0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: ddayMuzzle 0.08s ease-out;
+}
+@keyframes ddayMuzzle {
+  0%   { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.dday-flash-ov {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.dday-warn {
+  margin-top: 1rem;
+  padding: 0.7rem 1rem;
+  background: rgba(180, 30, 30, 0.2);
+  border: 2px solid rgba(180, 30, 30, 0.5);
+  color: #ff5a4a;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.dday-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  background: linear-gradient(180deg, #1a1208 0%, #2a1810 100%);
+  color: #fff;
+  min-height: 100vh;
+}
+.dday-error h2 { color: #ff5a4a; margin-bottom: 1rem; }
+.dday-error p { color: #c0a090; margin-bottom: 1.5rem; max-width: 400px; line-height: 1.6; }
