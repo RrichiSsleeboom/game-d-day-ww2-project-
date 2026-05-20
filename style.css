@@ -2473,3 +2473,248 @@ html, body { height: 100%; overscroll-behavior: none; }
   color: #5a4a30;
   font-family: monospace;
 }
+
+/* ============================================================
+   D-Day FPS — additional rail-shooter HUD
+   ============================================================ */
+
+/* Hide cursor over canvas — we draw our own crosshair */
+.dday-play #dday-canvas { cursor: none; }
+
+.dday-crosshair {
+  position: absolute;
+  width: 36px; height: 36px;
+  margin-left: -18px; margin-top: -18px;
+  pointer-events: none;
+  z-index: 9;
+}
+.dday-crosshair::before, .dday-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 235, 136, 0.85);
+  box-shadow: 0 0 4px rgba(255, 235, 136, 0.8);
+}
+.dday-crosshair::before {
+  top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%);
+}
+.dday-crosshair::after {
+  top: 0; left: 50%; width: 2px; height: 100%; transform: translateX(-50%);
+}
+.dday-crosshair.over-enemy::before,
+.dday-crosshair.over-enemy::after {
+  background: #ff5a4a;
+  box-shadow: 0 0 6px #ff5a4a;
+}
+.dday-crosshair.over-enemy {
+  transform: scale(1.15);
+}
+
+/* Bottom row — ammo + ability */
+.dday-hud-bottom-row {
+  position: absolute;
+  bottom: 0;
+  left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0.75rem;
+  gap: 1rem;
+  pointer-events: none;
+}
+.dday-hud-ammo {
+  background: rgba(0,0,0,0.55);
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 0.5rem 0.85rem;
+  pointer-events: auto;
+  position: relative;
+  min-width: 140px;
+}
+.dday-hud-ammo-mag {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+.dday-hud-ammo-mag b {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #d4a13a;
+  text-shadow: 0 0 6px rgba(212, 161, 58, 0.5);
+}
+.dday-hud-ammo-mag span { font-size: 0.85rem; color: #c0b090; }
+.dday-hud-ammo-reserve { font-size: 0.7rem; color: #a09080; margin-top: 0.1rem; }
+.dday-hud-ammo-name { font-size: 0.7rem; color: #807060; margin-top: 0.15rem; letter-spacing: 0.05em; }
+.dday-hud-reload {
+  position: absolute;
+  top: -1.4rem; left: 0;
+  font-size: 0.7rem;
+  color: #ff5a4a;
+  letter-spacing: 0.25em;
+  font-weight: 900;
+  display: none;
+  animation: ddayBlink 0.5s ease infinite;
+}
+.dday-hud-reload.show { display: block; }
+@keyframes ddayBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Enemy hover label */
+.dday-hud-enemy {
+  position: absolute;
+  top: 6rem; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.7);
+  border: 2px solid rgba(255, 90, 74, 0.5);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  color: #ff8090;
+  font-size: 0.78rem;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+.dday-hud-enemy.show { opacity: 1; }
+.dday-hud-enemy b { display: block; color: #fff; letter-spacing: 0.08em; font-size: 0.85rem; }
+.dday-hud-enemy span { font-size: 0.7rem; color: #c0a090; font-style: italic; }
+
+/* Intel popup between waves */
+.dday-intel {
+  position: absolute;
+  top: 9rem;
+  right: 0.75rem;
+  width: min(320px, 80%);
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  z-index: 6;
+}
+.dday-intel.show { opacity: 1; transform: translateX(0); }
+.dday-intel-card {
+  background: rgba(0,0,0,0.85);
+  border: 2px solid rgba(212, 161, 58, 0.55);
+  border-left-width: 6px;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+}
+.dday-intel-card span {
+  display: block;
+  font-size: 0.62rem;
+  letter-spacing: 0.4em;
+  color: #d4a13a;
+  margin-bottom: 0.3rem;
+}
+.dday-intel-card b { color: #fff; font-size: 0.95rem; display: block; margin-bottom: 0.3rem; letter-spacing: 0.05em; }
+.dday-intel-card p { font-size: 0.78rem; color: #c0b090; line-height: 1.55; }
+
+/* Touch buttons for reload */
+.dday-touch-reload {
+  position: absolute;
+  bottom: 7.5rem;
+  right: 1.5rem;
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: rgba(80, 90, 60, 0.65);
+  border: 3px solid #1a1008;
+  color: #fff;
+  font-size: 1.7rem;
+  z-index: 5;
+  cursor: pointer;
+  display: none;
+  box-shadow: 0 4px 0 #1a1008;
+}
+.dday-touch-reload:active { transform: translateY(2px); box-shadow: 0 2px 0 #1a1008; }
+@media (pointer: coarse) {
+  .dday-touch-reload { display: block; }
+  .dday-touch-ability { bottom: 1.25rem; right: 1.25rem; }
+}
+
+/* Role-card weapon line */
+.dday-role-weapon {
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(212, 161, 58, 0.18);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.dday-role-weapon b { color: #d4a13a; font-size: 0.85rem; letter-spacing: 0.05em; }
+.dday-role-weapon span { font-size: 0.7rem; color: #908070; margin-left: 0.5rem; font-style: italic; }
+
+/* Quiz */
+.dday-quiz {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  background: rgba(212, 161, 58, 0.08);
+  border: 1px solid rgba(212, 161, 58, 0.3);
+  border-radius: 10px;
+  text-align: left;
+}
+.dday-quiz-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.3em;
+  color: #d4a13a;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+}
+.dday-quiz-q {
+  font-size: 0.95rem;
+  color: #fff;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+  font-weight: 700;
+}
+.dday-quiz-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.dday-quiz-opt {
+  background: rgba(0,0,0,0.4);
+  border: 2px solid rgba(255,255,255,0.15);
+  color: #fff;
+  padding: 0.55rem 0.8rem;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.dday-quiz-opt:hover:not(.answered) {
+  background: rgba(212, 161, 58, 0.12);
+  border-color: rgba(212, 161, 58, 0.5);
+}
+.dday-quiz-opt.answered { cursor: default; opacity: 0.55; }
+.dday-quiz-opt.right {
+  background: rgba(80, 200, 80, 0.25);
+  border-color: #80ff80;
+  color: #fff;
+  opacity: 1;
+}
+.dday-quiz-opt.wrong {
+  background: rgba(200, 50, 50, 0.25);
+  border-color: #ff5a4a;
+  color: #fff;
+  opacity: 1;
+}
+.dday-quiz-explain {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #c0b090;
+  line-height: 1.6;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.dday-quiz-explain.show { opacity: 1; }
+
+/* Mobile tweaks */
+@media (max-width: 600px) {
+  .dday-hud-ammo { min-width: 110px; padding: 0.4rem 0.6rem; }
+  .dday-hud-ammo-mag b { font-size: 1.4rem; }
+  .dday-intel { width: min(260px, 70%); right: 0.5rem; top: 8rem; }
+  .dday-intel-card { padding: 0.55rem 0.7rem; }
+  .dday-intel-card p { font-size: 0.7rem; }
+  .dday-hud-enemy { top: 5rem; font-size: 0.68rem; }
+  .dday-hud-enemy b { font-size: 0.75rem; }
+}

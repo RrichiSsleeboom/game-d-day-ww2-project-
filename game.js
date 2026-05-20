@@ -1,12 +1,11 @@
 /* ============================================================
    D-DAY: BEACH ASSAULT
-   Top-down arcade shooter — multiple roles, multiple levels.
-   Stylised cartoon look (Brawl-Stars-ish). Pure vanilla JS,
-   HTML5 Canvas. Works on desktop (WASD/arrows) and touch
-   (virtual joystick). Auto-aim — focus on movement & dodging.
+   First-person rail shooter. Aim with cursor, click to fire.
+   Multiple roles, multiple levels, friendly NPCs, historical
+   facts between waves + end-of-level quiz.
    ============================================================ */
 
-const BUILD_VERSION = 'v5 · a161afa+';
+const BUILD_VERSION = 'v6 · FPS';
 console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;font-weight:bold');
 
 (function () {
@@ -18,129 +17,66 @@ console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;fo
 
 const ROLES = {
   rifleman: {
-    id: 'rifleman',
-    name: 'Rifleman',
-    fullName: 'Pvt. James Miller',
-    unit: '1st Infantry — Omaha Beach',
-    icon: '🎯',
-    color: '#4a8754',
-    accent: '#88c46a',
+    id: 'rifleman', name: 'Rifleman', fullName: 'Pvt. James Miller',
+    unit: '1st Infantry · Omaha Beach', icon: '🎯',
+    color: '#4a8754', accent: '#88c46a',
     hp: 100,
-    speed: 175,
-    fireRate: 320,   // ms between shots
-    damage: 28,
-    bulletSpeed: 580,
-    bulletColor: '#ffd95a',
-    bulletSize: 5,
-    range: 360,
-    ability: { name: 'Aimed Shot', key: 'Q', cooldown: 7000, desc: '×3 damage piercing shot' },
+    weapon: { name: 'M1 Garand', mag: 8, reserve: 64, fireMs: 220, reloadMs: 2000, dmg: 35, auto: false, spread: 0.005, recoil: 6 },
+    ability: { name: 'Aimed Shot', key: 'Q', cooldown: 7000, desc: 'Next shot deals 3× damage' },
     difficulty: 2,
-    blurb: 'All-rounder with an M1 Garand. Balanced damage and range, no weaknesses, no surprises.'
+    blurb: 'Standard issue M1 Garand. 8-round clip, semi-auto. Steady, accurate, deadly in trained hands.'
   },
   paratrooper: {
-    id: 'paratrooper',
-    name: 'Paratrooper',
-    fullName: 'Sgt. William O\'Connor',
-    unit: '101st Airborne — Sainte-Mère-Église',
-    icon: '🪂',
-    color: '#6e7a3a',
-    accent: '#c8d058',
+    id: 'paratrooper', name: 'Paratrooper', fullName: 'Sgt. William O\'Connor',
+    unit: '101st Airborne · Sainte-Mère-Église', icon: '🪂',
+    color: '#6e7a3a', accent: '#c8d058',
     hp: 80,
-    speed: 220,
-    fireRate: 110,
-    damage: 11,
-    bulletSpeed: 520,
-    bulletColor: '#ffaa44',
-    bulletSize: 4,
-    range: 280,
-    spread: 0.18,
-    ability: { name: 'Smoke Dash', key: 'Q', cooldown: 6000, desc: 'Sprint forward, briefly invincible' },
+    weapon: { name: 'Thompson M1A1', mag: 30, reserve: 120, fireMs: 85, reloadMs: 2400, dmg: 14, auto: true, spread: 0.04, recoil: 3 },
+    ability: { name: 'Suppressing Fire', key: 'Q', cooldown: 6500, desc: 'Auto-fire burst, no recoil for 2s' },
     difficulty: 3,
-    blurb: 'Thompson SMG and a knack for speed. Hits often, hits soft. Get in close, stay alive.'
+    blurb: 'Thompson submachine gun — "Tommy gun". 30-round stick mag. Spray and pray, get up close.'
   },
   medic: {
-    id: 'medic',
-    name: 'Medic',
-    fullName: 'Cpl. Samuel Cohen',
-    unit: '4th Infantry — Utah Beach',
-    icon: '⚕️',
-    color: '#8a4040',
-    accent: '#e07070',
+    id: 'medic', name: 'Medic', fullName: 'Cpl. Samuel Cohen',
+    unit: '4th Infantry · Utah Beach', icon: '⚕️',
+    color: '#8a4040', accent: '#e07070',
     hp: 130,
-    speed: 165,
-    fireRate: 480,
-    damage: 18,
-    bulletSpeed: 520,
-    bulletColor: '#ffd95a',
-    bulletSize: 5,
-    range: 320,
+    weapon: { name: 'Colt M1911', mag: 7, reserve: 56, fireMs: 240, reloadMs: 1800, dmg: 22, auto: false, spread: 0.015, recoil: 4 },
     ability: { name: 'Field Dressing', key: 'Q', cooldown: 9000, desc: 'Heal 60 HP instantly' },
     difficulty: 2,
-    blurb: 'Tough body, soft punch. Self-heal turns close calls into close shaves.'
+    blurb: 'Sidearm and a medic\'s bag. Self-heal turns close calls into close shaves. .45 ACP packs a punch.'
   },
   ranger: {
-    id: 'ranger',
-    name: 'Ranger',
-    fullName: 'Cpl. Leonard Lomell',
-    unit: '2nd Rangers — Pointe du Hoc',
-    icon: '💣',
-    color: '#4a5a78',
-    accent: '#7090c0',
+    id: 'ranger', name: 'Ranger', fullName: 'Cpl. Leonard Lomell',
+    unit: '2nd Rangers · Pointe du Hoc', icon: '💣',
+    color: '#4a5a78', accent: '#7090c0',
     hp: 90,
-    speed: 180,
-    fireRate: 380,
-    damage: 22,
-    bulletSpeed: 560,
-    bulletColor: '#ffd95a',
-    bulletSize: 5,
-    range: 340,
-    ability: { name: 'Grenade', key: 'Q', cooldown: 5500, desc: 'Throw a grenade that explodes on impact' },
+    weapon: { name: 'M1 Carbine', mag: 15, reserve: 90, fireMs: 180, reloadMs: 2200, dmg: 18, auto: false, spread: 0.012, recoil: 4 },
+    ability: { name: 'Grenade', key: 'Q', cooldown: 5500, desc: 'Lob a grenade at the crosshair' },
     difficulty: 3,
-    blurb: 'M1 carbine and a satchel of grenades. Crack open clusters of enemies in one bang.'
+    blurb: 'M1 Carbine and a satchel of frags. Crack open clusters of enemies in one bang.'
   },
   sniper: {
-    id: 'sniper',
-    name: 'Sniper',
-    fullName: 'Sgt. Robert Watson',
-    unit: '29th Infantry — Bocage',
-    icon: '🔭',
-    color: '#3a5a3a',
-    accent: '#80a060',
+    id: 'sniper', name: 'Sniper', fullName: 'Sgt. Robert Watson',
+    unit: '29th Infantry · Bocage', icon: '🔭',
+    color: '#3a5a3a', accent: '#80a060',
     hp: 70,
-    speed: 145,
-    fireRate: 950,
-    damage: 75,
-    bulletSpeed: 950,
-    bulletColor: '#f0f0ff',
-    bulletSize: 4,
-    range: 600,
-    ability: { name: 'Piercing Shot', key: 'Q', cooldown: 8000, desc: 'One shot, goes through every enemy in line' },
+    weapon: { name: 'Springfield M1903', mag: 5, reserve: 30, fireMs: 1000, reloadMs: 3000, dmg: 110, auto: false, spread: 0.0015, recoil: 12 },
+    ability: { name: 'Piercing Shot', key: 'Q', cooldown: 8000, desc: 'Next shot passes through everything in line' },
     difficulty: 4,
-    blurb: 'Springfield ’03. Slow, fragile, lethal. Keep your distance — or pay the price.'
+    blurb: 'Bolt-action with a 4× scope. Slow, fragile, lethal. One shot, one kill.'
   },
   heavy: {
-    id: 'heavy',
-    name: 'Heavy Gunner',
-    fullName: 'Pvt. Dale Vandegrift',
-    unit: '29th Infantry — Omaha Beach',
-    icon: '⚙️',
-    color: '#6a5028',
-    accent: '#c89040',
+    id: 'heavy', name: 'Heavy Gunner', fullName: 'Pvt. Dale Vandegrift',
+    unit: '29th Infantry · Omaha Beach', icon: '⚙️',
+    color: '#6a5028', accent: '#c89040',
     hp: 140,
-    speed: 130,
-    fireRate: 80,
-    damage: 8,
-    bulletSpeed: 500,
-    bulletColor: '#ffaa44',
-    bulletSize: 4,
-    range: 300,
-    spread: 0.22,
-    ability: { name: 'Brace', key: 'Q', cooldown: 7000, desc: '2s of double damage & half knockback' },
+    weapon: { name: 'BAR M1918A2', mag: 20, reserve: 100, fireMs: 105, reloadMs: 2800, dmg: 22, auto: true, spread: 0.03, recoil: 4 },
+    ability: { name: 'Brace', key: 'Q', cooldown: 7000, desc: '2s of double damage, no recoil' },
     difficulty: 3,
-    blurb: 'BAR automatic rifle. Walking thunder. Slow as a tank, hits like a hailstorm.'
+    blurb: 'Browning Automatic Rifle. Walking thunder — hits like a hailstorm, eats ammo for breakfast.'
   }
 };
-
 const ROLE_ORDER = ['rifleman', 'paratrooper', 'medic', 'ranger', 'sniper', 'heavy'];
 
 // ============================================================
@@ -149,115 +85,149 @@ const ROLE_ORDER = ['rifleman', 'paratrooper', 'medic', 'ranger', 'sniper', 'hea
 
 const LEVELS = [
   {
-    id: 'omaha',
-    name: 'Omaha Beach',
-    subtitle: 'Easy Red Sector · 06:35',
-    icon: '🌊',
-    available: true,
-    difficulty: 2,
+    id: 'omaha', name: 'Omaha Beach', subtitle: 'Easy Red Sector · 06:35', icon: '🌊',
+    difficulty: 2, waves: 3,
+    enemyHP: 1.0, enemyCount: 1.0,
     brief: 'You\'re off the Higgins boat. Sand, blood and machine-gun fire. Clear the seawall before the next wave lands.',
     historicalFact: 'Casualty rates on Omaha\'s first wave exceeded 50%. The 1st and 29th Divisions fought yard by yard up the bluffs.',
-    waves: 3,
-    enemyHP: 1.0,
-    enemyCount: 1.0,
-    palette: {
-      sand: '#d8b67a',
-      sandDark: '#b89858',
-      water: '#3a6090',
-      foliage: '#5a7848',
-      stone: '#888076',
-      blood: '#7a2020'
-    },
+    palette: { sky: '#7a8294', sky2: '#9aa2b4', ground: '#c8a878', ground2: '#a8885a', horizon: '#5a5048', smoke: 'rgba(120,100,80,0.75)' },
     terrain: 'beach',
-    boss: { type: 'mg_nest', hp: 480 },
-    scoreGoal: 1000
+    facts: [
+      { title: 'MG-42 — "Hitler\'s Buzzsaw"', text: 'The German MG-42 fired 1,200 rounds per minute, triple the rate of comparable US machine guns. Its distinctive ripping sound terrified Allied troops.' },
+      { title: 'Czech Hedgehogs', text: 'The steel-beam obstacles scattered across the beach were designed to tear out the bottoms of landing craft and prevent vehicles from advancing inland.' },
+      { title: 'Naval Bombardment', text: 'USS Texas and other destroyers closed to under 1,000 yards from Omaha at dawn to fire on bunkers at point-blank range — they had to, because air bombing had missed the German positions.' }
+    ],
+    quiz: {
+      q: 'How many men landed on Omaha Beach on D-Day?',
+      options: ['About 12,000', 'About 34,000', 'About 60,000', 'About 100,000'],
+      correct: 1,
+      explain: '~34,000 men landed on Omaha alone. ~2,400 became casualties — the bloodiest of all five D-Day beaches.'
+    },
+    boss: { type: 'mg_nest', hp: 480 }
   },
   {
-    id: 'bocage',
-    name: 'Bocage Country',
-    subtitle: 'Hedgerows · 11:20',
-    icon: '🌿',
-    available: true,
-    difficulty: 3,
+    id: 'bocage', name: 'Bocage Country', subtitle: 'Hedgerows · 11:20', icon: '🌿',
+    difficulty: 3, waves: 4,
+    enemyHP: 1.2, enemyCount: 1.2,
     brief: 'Hedgerows ten feet tall. Germans dug in behind every one. Push through. Don\'t bunch up.',
-    historicalFact: 'The Normandy hedgerows — bocage — were ancient earth banks topped with thick foliage. They forced US troops into yard-by-yard fighting for weeks.',
-    waves: 4,
-    enemyHP: 1.2,
-    enemyCount: 1.2,
-    palette: {
-      sand: '#a8a060',
-      sandDark: '#7a7040',
-      water: '#3a6090',
-      foliage: '#3a5a28',
-      stone: '#706858',
-      blood: '#7a2020'
-    },
+    historicalFact: 'The Normandy hedgerows — bocage — were ancient earth banks topped with thick foliage, forcing US troops into yard-by-yard fighting for weeks.',
+    palette: { sky: '#9caca0', sky2: '#bcc8b0', ground: '#8a9858', ground2: '#5a7048', horizon: '#3a4a28', smoke: 'rgba(100,90,70,0.6)' },
     terrain: 'bocage',
-    boss: { type: 'tank', hp: 700 },
-    scoreGoal: 1500
+    facts: [
+      { title: 'Rhino Tanks', text: 'US troops welded steel "tusks" from German beach obstacles onto Sherman tanks. These "Rhinos" could plough through hedgerows the Germans had thought impassable.' },
+      { title: 'The Sunken Lanes', text: 'Between hedgerows ran narrow lanes, often below ground level. Germans turned them into death traps with pre-sighted MGs at every corner.' },
+      { title: 'Cobra Breakout', text: 'After weeks of bocage fighting, Operation Cobra (July 25) finally broke the front open near St-Lô with massive carpet bombing.' }
+    ],
+    quiz: {
+      q: 'What does "bocage" mean?',
+      options: ['Forest', 'Marsh', 'Patchwork of fields edged with thick hedges', 'Coastal cliff'],
+      correct: 2,
+      explain: 'Bocage is the patchwork of small fields bounded by ancient earth banks topped with dense hedgerows. It dominates inland Normandy and made armoured combat brutal.'
+    },
+    boss: { type: 'tank', hp: 700 }
   },
   {
-    id: 'pointe',
-    name: 'Pointe du Hoc',
-    subtitle: 'Cliffs · 07:10',
-    icon: '⛰️',
-    available: true,
-    difficulty: 4,
-    brief: 'You climbed the 100-foot cliff. Now find the guns — or what\'s left of them. Snipers in every direction.',
-    historicalFact: '2nd Ranger Battalion scaled Pointe du Hoc under fire. The big guns had been moved, but the Rangers held the position for two days against repeated counter-attacks.',
-    waves: 4,
-    enemyHP: 1.35,
-    enemyCount: 1.35,
-    palette: {
-      sand: '#8a8278',
-      sandDark: '#605a50',
-      water: '#2a4878',
-      foliage: '#4a6038',
-      stone: '#8a8278',
-      blood: '#7a2020'
-    },
+    id: 'pointe', name: 'Pointe du Hoc', subtitle: 'Cliffs · 07:10', icon: '⛰️',
+    difficulty: 4, waves: 4,
+    enemyHP: 1.35, enemyCount: 1.35,
+    brief: 'You climbed the 100-foot cliff under fire. Now find the guns — or what\'s left of them. Snipers in every direction.',
+    historicalFact: '2nd Ranger Battalion scaled Pointe du Hoc under fire. The big guns had been moved inland, but the Rangers held the position for two days against repeated counter-attacks.',
+    palette: { sky: '#8090a4', sky2: '#a8b4c4', ground: '#9a9080', ground2: '#605648', horizon: '#403828', smoke: 'rgba(110,90,70,0.7)' },
     terrain: 'cliffs',
-    boss: { type: 'mg_nest', hp: 600 },
-    scoreGoal: 2000
+    facts: [
+      { title: 'Rocket-Propelled Grapnels', text: 'The Rangers fired rocket-launched grappling hooks trailing ropes up the 100-foot cliff. Many ropes were too wet from the surf to hold weight.' },
+      { title: 'The Missing Guns', text: 'Lt. Lomell and Sgt. Kuhn found the five missing guns hidden a mile inland, unguarded, and destroyed them with thermite grenades — completing the mission.' },
+      { title: 'Holding On', text: 'Of 225 Rangers who landed at Pointe du Hoc, only 90 were still able to fight when they were relieved two days later.' }
+    ],
+    quiz: {
+      q: 'What did the Rangers find at the top of Pointe du Hoc?',
+      options: ['The German command HQ', 'Empty gun emplacements — the artillery had been moved', 'A large minefield', 'A captured American unit'],
+      correct: 1,
+      explain: 'The big coastal guns had been moved a mile inland a few days before. The Rangers tracked them down and destroyed them with thermite grenades.'
+    },
+    boss: { type: 'mg_nest', hp: 600 }
   },
   {
-    id: 'town',
-    name: 'Sainte-Mère-Église',
-    subtitle: 'Town Square · 04:30',
-    icon: '⛪',
-    available: true,
-    difficulty: 5,
-    brief: 'Paratroopers landed in the church square. Hold what you have. Reinforcements come at dawn.',
-    historicalFact: 'Pvt. John Steele\'s parachute caught the church steeple in Sainte-Mère-Église, leaving him hanging through the night. The town was the first French town liberated.',
-    waves: 5,
-    enemyHP: 1.5,
-    enemyCount: 1.5,
-    palette: {
-      sand: '#787068',
-      sandDark: '#504840',
-      water: '#1a2848',
-      foliage: '#3a4828',
-      stone: '#a8a098',
-      blood: '#8a2020'
-    },
+    id: 'town', name: 'Sainte-Mère-Église', subtitle: 'Town Square · 04:30', icon: '⛪',
+    difficulty: 5, waves: 5,
+    enemyHP: 1.5, enemyCount: 1.5,
+    brief: 'Paratroopers landed in the church square at night. Hold what you have. Reinforcements come at dawn.',
+    historicalFact: 'Pvt. John Steele\'s parachute caught the church steeple in Sainte-Mère-Église, leaving him hanging through the night. The town was the first French town liberated by Allied forces.',
+    palette: { sky: '#1a2438', sky2: '#384058', ground: '#5a4838', ground2: '#3a2c20', horizon: '#1a1208', smoke: 'rgba(80,70,60,0.55)' },
     terrain: 'town',
-    boss: { type: 'officer', hp: 850 },
-    scoreGoal: 2500
+    facts: [
+      { title: 'John Steele', text: 'Steele played dead for two hours while hanging from the church spire. The Germans eventually cut him down and took him prisoner — he later escaped.' },
+      { title: 'The Pathfinders', text: 'Pathfinder paratroopers jumped first to mark drop zones with lights. Many were scattered miles off-target by poor weather and anti-aircraft fire.' },
+      { title: 'First Town Liberated', text: 'Sainte-Mère-Église became the first French town liberated on D-Day, secured around 04:30 by the 505th Parachute Infantry Regiment.' }
+    ],
+    quiz: {
+      q: 'What happened to Pvt. John Steele during the drop on Sainte-Mère-Église?',
+      options: ['He landed on the church and was killed', 'His parachute caught the church steeple and he hung there for hours', 'He led the assault on the German HQ', 'He was the first man into the town square'],
+      correct: 1,
+      explain: 'Steele\'s chute snagged the steeple of the Église Notre-Dame. He hung from the side of the church for about 2 hours playing dead before being taken prisoner.'
+    },
+    boss: { type: 'officer', hp: 850 }
   }
 ];
+
+// ============================================================
+// ENEMY TYPES
+// ============================================================
+
+const ENEMY_TYPES = {
+  infantry: {
+    name: 'Wehrmacht Heer', weapon: 'Mauser K98k',
+    hp: 55, speed: 7, dmg: 8, fireMs: 1600, accuracy: 0.65, range: 70, color: '#5a5550', accent: '#7a7570', helmet: 'stahl',
+    score: 15
+  },
+  rifleman: {
+    name: 'Wehrmacht Grenadier', weapon: 'Gewehr 43',
+    hp: 85, speed: 9, dmg: 12, fireMs: 1100, accuracy: 0.72, range: 80, color: '#3a4a3a', accent: '#5a6850', helmet: 'stahl',
+    score: 25
+  },
+  mg: {
+    name: 'MG-42 Gunner', weapon: 'MG-42',
+    hp: 140, speed: 4, dmg: 5, fireMs: 180, accuracy: 0.55, range: 90, color: '#3a3a48', accent: '#5a5060', helmet: 'stahl',
+    burst: 5, score: 60
+  },
+  sniper: {
+    name: 'Scharfschütze', weapon: 'K98k w/ Zeiss scope',
+    hp: 65, speed: 6, dmg: 28, fireMs: 1900, accuracy: 0.92, range: 110, color: '#5a4848', accent: '#7a6868', helmet: 'cap',
+    score: 70
+  },
+  ss: {
+    name: 'Waffen-SS Trooper', weapon: 'MP 40',
+    hp: 100, speed: 11, dmg: 10, fireMs: 380, accuracy: 0.7, range: 60, color: '#2a2a30', accent: '#48485a', helmet: 'stahl',
+    burst: 3, score: 50
+  },
+  tank: {
+    name: 'Panzer IV', weapon: '75mm KwK 40',
+    hp: 700, speed: 3, dmg: 35, fireMs: 2200, accuracy: 0.85, range: 100, color: '#4a4a3a', accent: '#6a6a4a', helmet: 'none',
+    isVehicle: true, score: 250
+  },
+  mg_nest: {
+    name: 'MG-42 Bunker', weapon: 'Twin MG-42',
+    hp: 480, speed: 0, dmg: 7, fireMs: 140, accuracy: 0.7, range: 130, color: '#3a3030', accent: '#5a4848', helmet: 'bunker',
+    isStatic: true, score: 350
+  },
+  officer: {
+    name: 'SS-Hauptsturmführer', weapon: 'MP 40 + Luger',
+    hp: 850, speed: 8, dmg: 11, fireMs: 320, accuracy: 0.8, range: 70, color: '#3a2840', accent: '#7a5860', helmet: 'cap',
+    burst: 4, score: 500
+  }
+};
 
 // ============================================================
 // STATE
 // ============================================================
 
 const state = {
-  screen: 'title',  // title, role, level, brief, play, win, lose
+  screen: 'title',
   role: 'rifleman',
   level: 0,
-  score: 0,
-  wave: 0,
+  score: 0, wave: 0, kills: 0,
   best: parseInt(localStorage.getItem('dday_best') || '0', 10),
-  unlocked: parseInt(localStorage.getItem('dday_unlocked') || '1', 10) // index of highest level unlocked
+  unlocked: parseInt(localStorage.getItem('dday_unlocked') || '1', 10)
 };
 
 const app = document.getElementById('app');
@@ -266,15 +236,12 @@ const app = document.getElementById('app');
 // HELPERS
 // ============================================================
 
-function rand(min, max) { return Math.random() * (max - min) + min; }
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-function dist2(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return dx * dx + dy * dy; }
-function dist(a, b) { return Math.sqrt(dist2(a, b)); }
-function angleTo(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
+function rand(a, b) { return Math.random() * (b - a) + a; }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
+function lerp(a, b, t) { return a + (b - a) * t; }
 
 // ============================================================
 // SCREEN ROUTING
@@ -284,6 +251,9 @@ function go(screen, opts) {
   state.screen = screen;
   if (opts) Object.assign(state, opts);
   if (gameLoopId) { cancelAnimationFrame(gameLoopId); gameLoopId = 0; }
+  if (game) { game.cleanup(); game = null; }
+  window.removeEventListener('keydown', onKeyDown);
+  window.removeEventListener('keyup', onKeyUp);
   switch (screen) {
     case 'title': renderTitle(); break;
     case 'role':  renderRoleSelect(); break;
@@ -293,6 +263,12 @@ function go(screen, opts) {
     case 'win':   renderResult(true); break;
     case 'lose':  renderResult(false); break;
   }
+}
+
+function wireButtons() {
+  app.querySelectorAll('[data-go]').forEach(el => {
+    el.addEventListener('click', () => go(el.getAttribute('data-go')));
+  });
 }
 
 // ============================================================
@@ -307,9 +283,7 @@ function renderTitle() {
         <div class="dday-title-tag">June 6, 1944</div>
         <h1 class="dday-title-heading">D-DAY<span>Beach Assault</span></h1>
         <div class="dday-title-line"></div>
-        <p class="dday-title-blurb">
-          Storm the beaches. Pick your soldier. Survive the waves.
-        </p>
+        <p class="dday-title-blurb">First-person rail shooter. Aim. Fire. Survive the waves. Learn the history.</p>
         <div class="dday-title-stats">
           <div><b>${state.best}</b><span>Best Score</span></div>
           <div><b>${state.unlocked}</b><span>Levels Unlocked</span></div>
@@ -317,8 +291,8 @@ function renderTitle() {
         </div>
         <button class="dday-btn dday-btn-primary" data-go="role">Deploy →</button>
         <div class="dday-title-hint">
-          <kbd>WASD</kbd> or <kbd>↑←↓→</kbd> to move · auto-aim · <kbd>Q</kbd> or <kbd>Space</kbd> for special<br>
-          Touch screen? You'll get a joystick.
+          <kbd>Mouse</kbd> aim · <kbd>Click</kbd> fire · <kbd>R</kbd> reload · <kbd>Q</kbd> ability · <kbd>A/D</kbd> lean<br>
+          Touch: tap to fire · drag to aim · button for ability
         </div>
         <div class="dday-build">build ${BUILD_VERSION}</div>
       </div>
@@ -334,6 +308,7 @@ function renderTitle() {
 function renderRoleSelect() {
   const cards = ROLE_ORDER.map(id => {
     const r = ROLES[id];
+    const w = r.weapon;
     const selected = state.role === id ? 'selected' : '';
     return `
       <div class="dday-role-card ${selected}" data-pick-role="${id}" style="--accent:${r.accent};--accent-dark:${r.color}">
@@ -342,11 +317,15 @@ function renderRoleSelect() {
         <div class="dday-role-sub">${escapeHtml(r.fullName)}</div>
         <div class="dday-role-unit">${escapeHtml(r.unit)}</div>
         <p class="dday-role-blurb">${escapeHtml(r.blurb)}</p>
+        <div class="dday-role-weapon">
+          <b>${escapeHtml(w.name)}</b>
+          <span>${w.mag} rnd mag · ${w.auto ? 'auto' : 'semi-auto'}</span>
+        </div>
         <div class="dday-role-stats">
           <div><span>HP</span><div class="dday-stat-bar"><i style="width:${r.hp / 1.5}%"></i></div></div>
-          <div><span>SPD</span><div class="dday-stat-bar"><i style="width:${r.speed / 2.5}%"></i></div></div>
-          <div><span>DMG</span><div class="dday-stat-bar"><i style="width:${r.damage * 1.2}%"></i></div></div>
-          <div><span>RoF</span><div class="dday-stat-bar"><i style="width:${100 - r.fireRate / 12}%"></i></div></div>
+          <div><span>DMG</span><div class="dday-stat-bar"><i style="width:${clamp(w.dmg * 0.9, 10, 100)}%"></i></div></div>
+          <div><span>RoF</span><div class="dday-stat-bar"><i style="width:${clamp(100 - w.fireMs / 12, 10, 100)}%"></i></div></div>
+          <div><span>ACC</span><div class="dday-stat-bar"><i style="width:${clamp(100 - w.spread * 1500, 30, 100)}%"></i></div></div>
         </div>
         <div class="dday-role-ability">
           <b>${escapeHtml(r.ability.name)}</b> <span>(Q)</span><br>
@@ -355,7 +334,6 @@ function renderRoleSelect() {
       </div>
     `;
   }).join('');
-
   app.innerHTML = `
     <section class="dday-screen dday-role-select">
       <div class="dday-top">
@@ -371,10 +349,7 @@ function renderRoleSelect() {
   `;
   wireButtons();
   app.querySelectorAll('[data-pick-role]').forEach(el => {
-    el.addEventListener('click', () => {
-      state.role = el.getAttribute('data-pick-role');
-      renderRoleSelect();
-    });
+    el.addEventListener('click', () => { state.role = el.getAttribute('data-pick-role'); renderRoleSelect(); });
   });
 }
 
@@ -396,7 +371,6 @@ function renderLevelSelect() {
       </div>
     `;
   }).join('');
-
   app.innerHTML = `
     <section class="dday-screen dday-level-select">
       <div class="dday-top">
@@ -458,7 +432,7 @@ function renderBriefing() {
         </div>
         <div class="dday-brief-objective">
           <span>OBJECTIVE</span>
-          <p>Survive ${l.waves} waves of enemies, then defeat the position. Stay alive.</p>
+          <p>Survive ${l.waves} waves, then take down the position. Manual fire — aim with your cursor and click. Stay alive.</p>
         </div>
         <button class="dday-btn dday-btn-primary dday-btn-large" data-go="play">Engage</button>
       </div>
@@ -472,16 +446,17 @@ function renderBriefing() {
 // ============================================================
 
 let canvas, ctx;
-let game; // game instance
+let game = null;
 let gameLoopId = 0;
 let lastFrame = 0;
 let keys = {};
-let touch = { active: false, baseX: 0, baseY: 0, x: 0, y: 0, special: false };
+let mouseX = 0, mouseY = 0;
+let mouseDown = false;
+let touchAim = false;
 
 function startGameplay() {
   const l = LEVELS[state.level];
   const r = ROLES[state.role];
-
   app.innerHTML = `
     <section class="dday-screen dday-play">
       <canvas id="dday-canvas"></canvas>
@@ -490,7 +465,7 @@ function startGameplay() {
           <div class="dday-hud-health">
             <div class="dday-hud-label">${r.icon} ${escapeHtml(r.name)}</div>
             <div class="dday-hud-hp"><i id="hud-hp"></i></div>
-            <div class="dday-hud-hp-text"><span id="hud-hp-text">100</span> / ${r.hp}</div>
+            <div class="dday-hud-hp-text"><span id="hud-hp-text">${r.hp}</span> / ${r.hp}</div>
           </div>
           <div class="dday-hud-mid">
             <div class="dday-hud-label">Wave</div>
@@ -501,25 +476,29 @@ function startGameplay() {
             <div class="dday-hud-score-val"><b id="hud-score">0</b></div>
           </div>
         </div>
-        <div class="dday-hud-bottom">
+        <div class="dday-hud-bottom-row">
+          <div class="dday-hud-ammo">
+            <div class="dday-hud-ammo-mag"><b id="hud-mag">${r.weapon.mag}</b><span>/ ${r.weapon.mag}</span></div>
+            <div class="dday-hud-ammo-reserve">Reserve: <span id="hud-reserve">${r.weapon.reserve}</span></div>
+            <div class="dday-hud-ammo-name">${escapeHtml(r.weapon.name)}</div>
+            <div class="dday-hud-reload" id="hud-reload">RELOADING…</div>
+          </div>
           <div class="dday-hud-ability" id="hud-ability">
             <div class="dday-hud-ability-fill"></div>
             <div class="dday-hud-ability-label">${escapeHtml(r.ability.name)}</div>
             <div class="dday-hud-ability-key">Q</div>
           </div>
         </div>
+        <div class="dday-hud-enemy" id="hud-enemy"></div>
+        <div class="dday-intel" id="dday-intel"></div>
       </div>
-      <div class="dday-touch" id="dday-touch">
-        <div class="dday-touch-stick" id="dday-stick">
-          <div class="dday-touch-knob" id="dday-knob"></div>
-        </div>
-        <button class="dday-touch-ability" id="dday-touch-ability">${r.icon}</button>
-      </div>
+      <button class="dday-touch-ability" id="dday-touch-ability">${r.icon}</button>
+      <button class="dday-touch-reload" id="dday-touch-reload">⟳</button>
       <button class="dday-pause" id="dday-pause">⏸</button>
       <div class="dday-toast" id="dday-toast"></div>
+      <div class="dday-crosshair" id="dday-crosshair"></div>
     </section>
   `;
-
   canvas = document.getElementById('dday-canvas');
   ctx = canvas.getContext('2d');
   resizeCanvas();
@@ -531,6 +510,14 @@ function startGameplay() {
   document.getElementById('dday-pause').addEventListener('click', () => {
     if (game.paused) game.resume(); else game.pause();
   });
+  const tAb = document.getElementById('dday-touch-ability');
+  const tRl = document.getElementById('dday-touch-reload');
+  if (tAb) {
+    tAb.addEventListener('click', e => { e.preventDefault(); if (game) game.useAbility(); });
+  }
+  if (tRl) {
+    tRl.addEventListener('click', e => { e.preventDefault(); if (game) game.reload(); });
+  }
 
   lastFrame = performance.now();
   gameLoopId = requestAnimationFrame(loop);
@@ -558,7 +545,7 @@ function loop(now) {
 }
 
 // ============================================================
-// GAME CLASS
+// GAME CLASS — FIRST-PERSON RAIL SHOOTER
 // ============================================================
 
 class Game {
@@ -567,34 +554,131 @@ class Game {
     this.level = level;
     this.w = window.innerWidth;
     this.h = window.innerHeight;
-    this.paused = false;
-    this.over = false;
-    this.shake = 0;
-    this.shakeMag = 0;
-    this.time = 0;
 
-    this.player = new Player(this.w / 2, this.h * 0.78, role);
+    // Camera / view
+    this.lateral = 0; // -1 .. 1 (player lean / strafe)
+    this.lateralTarget = 0;
+
+    // Combat
+    this.maxHp = role.hp;
+    this.hp = role.hp;
+    this.mag = role.weapon.mag;
+    this.reserve = role.weapon.reserve;
+    this.reloading = false;
+    this.reloadTimer = 0;
+    this.lastFire = 0;
+    this.recoil = 0;
+    this.firing = false;
+
+    // Aim
+    this.aimX = this.w / 2;
+    this.aimY = this.h / 2;
+
+    // Ability
+    this.lastAbility = -99999;
+    this.abilityActive = 0; // seconds remaining
+    this.nextShotMul = 1;
+
+    // Entities
     this.enemies = [];
-    this.bullets = [];
+    this.allies = []; // friendlies advancing alongside
+    this.tracers = [];
     this.particles = [];
-    this.pickups = [];
-    this.floats = []; // floating damage numbers
-    this.obstacles = this.makeObstacles();
+    this.floats = [];
+    this.grenades = [];
 
+    // Wave system
     this.wave = 1;
-    this.score = 0;
-    this.kills = 0;
     this.waveAlive = 0;
-    this.waveTimer = 1.5; // intro pause before first wave
+    this.state = 'pre-wave';
+    this.waveTimer = 1.8;
     this.bossSpawned = false;
     this.boss = null;
-    this.state = 'pre-wave';
 
-    this.lastShot = 0;
-    this.lastAbility = -999;
-    this.abilityActive = 0;
+    // Scoring
+    this.score = 0;
+    this.kills = 0;
+    this.factIndex = 0;
+
+    // FX
+    this.shake = 0;
+    this.muzzleFlash = 0;
+    this.flashHit = 0;
+
+    // Persistent decor (smoke pillars, parallax)
+    this.smokePillars = this.makeSmokePillars();
+    this.parallax = this.makeParallax();
+    this.allies = this.makeAllies();
+
+    this.paused = false;
+    this.over = false;
+    this.time = 0;
 
     this.toast('Wave 1 incoming…', 1500);
+  }
+
+  cleanup() {
+    window.removeEventListener('resize', resizeCanvas);
+    canvas = null; ctx = null;
+  }
+
+  makeSmokePillars() {
+    const arr = [];
+    for (let i = 0; i < 5; i++) {
+      arr.push({
+        x: rand(-1.2, 1.2),
+        z: rand(50, 90),
+        h: rand(0.45, 0.7),
+        wob: rand(0, 10),
+        speed: rand(0.3, 0.8)
+      });
+    }
+    return arr;
+  }
+
+  makeParallax() {
+    const t = this.level.terrain;
+    const arr = [];
+    if (t === 'beach') {
+      // Distant ships
+      for (let i = 0; i < 4; i++) arr.push({ x: rand(-1.5, 1.5), z: 100, type: 'ship', size: rand(0.6, 1.1) });
+    } else if (t === 'bocage') {
+      for (let i = 0; i < 6; i++) arr.push({ x: rand(-1.5, 1.5), z: 70, type: 'tree', size: rand(0.7, 1.2) });
+    } else if (t === 'cliffs') {
+      for (let i = 0; i < 3; i++) arr.push({ x: rand(-1.5, 1.5), z: 90, type: 'cliff', size: rand(1.0, 1.6) });
+    } else if (t === 'town') {
+      for (let i = 0; i < 5; i++) arr.push({ x: rand(-1.5, 1.5), z: 60, type: 'building', size: rand(0.9, 1.4) });
+      arr.push({ x: 0, z: 95, type: 'steeple', size: 1.8 });
+    }
+    return arr;
+  }
+
+  makeAllies() {
+    const arr = [];
+    for (let i = 0; i < 6; i++) {
+      arr.push({
+        x: rand(-1.4, 1.4),
+        z: rand(20, 45),
+        type: 'ally',
+        anim: rand(0, 6),
+        speed: rand(1.5, 3.0), // advances over time (z decreases)
+        alive: true
+      });
+    }
+    return arr;
+  }
+
+  pause() { this.paused = true; this.toast('Paused — click to resume', 99999); }
+  resume() {
+    this.paused = false;
+    const el = document.getElementById('dday-toast');
+    if (el) el.classList.remove('show');
+    lastFrame = performance.now();
+  }
+
+  onResize() {
+    this.w = window.innerWidth;
+    this.h = window.innerHeight;
   }
 
   toast(msg, dur) {
@@ -606,93 +690,262 @@ class Game {
     this._toastT = setTimeout(() => el.classList.remove('show'), dur || 1200);
   }
 
-  onResize() {
-    this.w = window.innerWidth;
-    this.h = window.innerHeight;
+  intel(fact) {
+    const el = document.getElementById('dday-intel');
+    if (!el) return;
+    el.innerHTML = `<div class="dday-intel-card"><span>📜 INTEL</span><b>${escapeHtml(fact.title)}</b><p>${escapeHtml(fact.text)}</p></div>`;
+    el.classList.add('show');
+    clearTimeout(this._intelT);
+    this._intelT = setTimeout(() => el.classList.remove('show'), 5500);
   }
 
-  pause() { this.paused = true; this.toast('Paused', 9999); }
-  resume() {
-    this.paused = false;
-    const el = document.getElementById('dday-toast');
-    if (el) el.classList.remove('show');
-    lastFrame = performance.now();
-  }
-
-  makeObstacles() {
-    const obs = [];
-    const t = this.level.terrain;
-    const W = this.w, H = this.h;
-    if (t === 'beach') {
-      // Czech hedgehogs scattered
-      for (let i = 0; i < 6; i++) {
-        obs.push({ x: rand(80, W - 80), y: rand(H * 0.35, H * 0.6), r: 26, type: 'hedgehog', hp: 0 });
-      }
-      // Sandbag wall mid
-      for (let i = 0; i < 5; i++) {
-        obs.push({ x: 120 + i * (W - 240) / 4, y: H * 0.25, r: 24, type: 'sandbag', hp: 0 });
-      }
-    } else if (t === 'bocage') {
-      // Hedgerow blobs
-      for (let i = 0; i < 12; i++) {
-        obs.push({ x: rand(60, W - 60), y: rand(80, H - 200), r: rand(34, 50), type: 'bush', hp: 0 });
-      }
-    } else if (t === 'cliffs') {
-      // Rocks
-      for (let i = 0; i < 9; i++) {
-        obs.push({ x: rand(60, W - 60), y: rand(80, H - 200), r: rand(26, 44), type: 'rock', hp: 0 });
-      }
-    } else if (t === 'town') {
-      // Buildings — large rects (approximated as big circles for collision)
-      for (let i = 0; i < 5; i++) {
-        obs.push({ x: rand(100, W - 100), y: rand(100, H - 250), r: rand(38, 58), type: 'wall', hp: 0 });
-      }
-    }
-    return obs;
-  }
+  // ---- WAVE / SPAWN ----
 
   spawnWave() {
-    const baseCount = 5 + this.wave;
+    const baseCount = 4 + this.wave;
     const count = Math.round(baseCount * this.level.enemyCount);
     for (let i = 0; i < count; i++) {
       const type = this.pickEnemyType();
-      const side = Math.floor(Math.random() * 3); // 0 top, 1 left, 2 right
-      let x, y;
-      if (side === 0) { x = rand(40, this.w - 40); y = -30; }
-      else if (side === 1) { x = -30; y = rand(40, this.h * 0.6); }
-      else { x = this.w + 30; y = rand(40, this.h * 0.6); }
-      this.enemies.push(new Enemy(x, y, type, this.level.enemyHP, this.level.palette));
+      const lane = (i % 3) - 1 + rand(-0.3, 0.3); // -1, 0, 1 with jitter
+      const z = rand(70, 95);
+      this.spawnEnemy(type, lane * 0.9, z);
     }
     this.waveAlive = count;
     this.state = 'wave';
     this.toast(`Wave ${this.wave} of ${this.level.waves}`, 1200);
   }
 
-  spawnBoss() {
-    const b = this.level.boss;
-    const boss = new Enemy(this.w / 2, -80, b.type, 1, this.level.palette, true);
-    boss.maxHp = b.hp;
-    boss.hp = b.hp;
-    this.boss = boss;
-    this.enemies.push(boss);
-    this.bossSpawned = true;
-    this.state = 'boss';
-    this.toast('⚠ Boss incoming', 1800);
+  pickEnemyType() {
+    const w = this.wave;
+    const roll = Math.random();
+    if (w === 1) return roll < 0.75 ? 'infantry' : 'rifleman';
+    if (w === 2) return roll < 0.5 ? 'infantry' : roll < 0.85 ? 'rifleman' : 'mg';
+    if (w === 3) return roll < 0.35 ? 'infantry' : roll < 0.65 ? 'rifleman' : roll < 0.88 ? 'mg' : 'sniper';
+    return roll < 0.25 ? 'infantry' : roll < 0.5 ? 'rifleman' : roll < 0.75 ? 'mg' : roll < 0.9 ? 'sniper' : 'ss';
   }
 
-  pickEnemyType() {
-    // Variety based on wave
-    const roll = Math.random();
-    if (this.wave === 1) return roll < 0.85 ? 'infantry' : 'rifleman';
-    if (this.wave === 2) return roll < 0.55 ? 'infantry' : roll < 0.85 ? 'rifleman' : 'mg';
-    return roll < 0.4 ? 'infantry' : roll < 0.7 ? 'rifleman' : roll < 0.9 ? 'mg' : 'sniper';
+  spawnEnemy(typeId, x, z) {
+    const t = ENEMY_TYPES[typeId];
+    const hp = t.hp * this.level.enemyHP;
+    this.enemies.push({
+      typeId, type: t,
+      x, z,
+      hp, maxHp: hp,
+      lastShot: 0,
+      nextCoverStop: z - rand(20, 35), // they'll stop and shoot here
+      stopped: false,
+      stopUntil: 0,
+      shootCount: 0,
+      bobPhase: rand(0, Math.PI * 2),
+      hitFlash: 0,
+      dead: false,
+      dying: 0,
+      boss: false
+    });
   }
+
+  spawnBoss() {
+    const b = this.level.boss;
+    const t = ENEMY_TYPES[b.type];
+    const e = {
+      typeId: b.type, type: t,
+      x: 0, z: 60,
+      hp: b.hp, maxHp: b.hp,
+      lastShot: 0,
+      nextCoverStop: 25,
+      stopped: false,
+      stopUntil: 0,
+      shootCount: 0,
+      bobPhase: 0,
+      hitFlash: 0,
+      dead: false,
+      dying: 0,
+      boss: true
+    };
+    this.enemies.push(e);
+    this.boss = e;
+    this.bossSpawned = true;
+    this.state = 'boss';
+    this.toast('⚠ Boss approaching', 1800);
+  }
+
+  // ---- INPUT-DRIVEN ACTIONS ----
+
+  tryFire() {
+    if (this.over || this.paused) return;
+    if (this.reloading) return;
+    const w = this.role.weapon;
+    if (this.mag <= 0) { this.reload(); return; }
+    const now = this.time * 1000;
+    if (now - this.lastFire < w.fireMs) return;
+    this.lastFire = now;
+    this.fire();
+  }
+
+  fire() {
+    const w = this.role.weapon;
+    this.mag--;
+    const noRecoil = this.abilityActive > 0;
+    let spread = w.spread + this.recoil * 0.002;
+    if (this.role.id === 'paratrooper' && this.abilityActive > 0) spread = w.spread * 0.3;
+    const aimNoise = spread * (1 + rand(-0.3, 0.3));
+    const angX = rand(-aimNoise, aimNoise);
+    const angY = rand(-aimNoise, aimNoise);
+    // Convert screen-space aim to a ray hit
+    const targetX = this.aimX + angX * this.w;
+    const targetY = this.aimY + angY * this.h;
+    let dmg = w.dmg * this.nextShotMul;
+    this.nextShotMul = 1;
+    if (this.role.id === 'heavy' && this.abilityActive > 0) dmg *= 2;
+    const pierce = (this.role.id === 'sniper' && this.nextShotPierce);
+    this.nextShotPierce = false;
+    const hits = this.castShot(targetX, targetY, dmg, pierce);
+    this.tracers.push({ x: targetX, y: targetY, age: 0 });
+    this.muzzleFlash = 0.08;
+    if (!noRecoil) this.recoil = Math.min(20, this.recoil + w.recoil);
+    if (hits === 0) {
+      // Miss
+    }
+    if (this.mag === 0) {
+      this.toast('Out of ammo — press R', 900);
+    }
+    this.updateAmmoHUD();
+  }
+
+  castShot(sx, sy, dmg, pierce) {
+    // Sort enemies front-to-back (smaller z first = closer)
+    const candidates = [];
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const proj = this.projectEnemy(e);
+      if (!proj) continue;
+      const w = proj.w, h = proj.h;
+      if (sx >= proj.cx - w / 2 && sx <= proj.cx + w / 2 &&
+          sy >= proj.cy - h && sy <= proj.cy + h * 0.15) {
+        candidates.push({ e, z: e.z });
+      }
+    }
+    candidates.sort((a, b) => a.z - b.z);
+    let hits = 0;
+    for (const c of candidates) {
+      this.hitEnemy(c.e, dmg);
+      hits++;
+      if (!pierce) break;
+    }
+    return hits;
+  }
+
+  hitEnemy(e, dmg) {
+    e.hp -= dmg;
+    e.hitFlash = 0.18;
+    this.floats.push({ x: this.projectEnemy(e).cx, y: this.projectEnemy(e).cy - this.projectEnemy(e).h * 1.05, text: '' + Math.ceil(dmg), color: dmg >= 50 ? '#ffeb6a' : '#ffd95a', life: 0.7 });
+    if (e.hp <= 0 && !e.dead) {
+      e.dead = true;
+      e.dying = 0.6;
+      this.score += e.boss ? 600 : e.type.score;
+      this.kills++;
+      this.flashHit = 0.1;
+      const p = this.projectEnemy(e);
+      if (p) {
+        for (let i = 0; i < 14; i++) {
+          this.particles.push({
+            x: p.cx + rand(-10, 10), y: p.cy - p.h * 0.5 + rand(-10, 10),
+            vx: rand(-40, 40), vy: rand(-60, -20),
+            color: this.level.palette.smoke,
+            size: rand(4, 10), life: rand(0.4, 0.8), maxLife: 0.8
+          });
+        }
+      }
+      this.updateScoreHUD();
+    }
+  }
+
+  reload() {
+    if (this.reloading) return;
+    const w = this.role.weapon;
+    if (this.mag === w.mag) return;
+    if (this.reserve <= 0) { this.toast('No reserve ammo!', 900); return; }
+    this.reloading = true;
+    this.reloadTimer = w.reloadMs / 1000;
+    const el = document.getElementById('hud-reload');
+    if (el) el.classList.add('show');
+  }
+
+  useAbility() {
+    if (this.over || this.paused) return;
+    const r = this.role;
+    const since = this.time * 1000 - this.lastAbility;
+    if (since < r.ability.cooldown) return;
+    this.lastAbility = this.time * 1000;
+    if (r.id === 'rifleman') {
+      this.nextShotMul = 3;
+      this.toast('Aimed shot ready — next bullet ×3', 1300);
+    } else if (r.id === 'paratrooper' || r.id === 'heavy') {
+      this.abilityActive = 2.0;
+      this.toast(r.id === 'heavy' ? 'Braced — ×2 damage' : 'Suppressing fire — no recoil', 1300);
+    } else if (r.id === 'medic') {
+      this.hp = Math.min(this.maxHp, this.hp + 60);
+      this.floats.push({ x: this.w / 2, y: this.h * 0.6, text: '+60 HP', color: '#ff8080', life: 1 });
+      this.updateHpHUD();
+    } else if (r.id === 'ranger') {
+      // Lob grenade at crosshair
+      this.grenades.push({ ax: this.aimX, ay: this.aimY, t: 0, dur: 0.7, age: 0 });
+    } else if (r.id === 'sniper') {
+      this.nextShotPierce = true;
+      this.nextShotMul = 1.5;
+      this.toast('Piercing shot ready', 1300);
+    }
+  }
+
+  // ---- UPDATE ----
 
   update(dt) {
     this.time += dt;
-    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 6);
 
-    // State machine
+    // Lateral lean (A/D)
+    let target = 0;
+    if (keys['a'] || keys['arrowleft']) target -= 1;
+    if (keys['d'] || keys['arrowright']) target += 1;
+    this.lateralTarget = target;
+    this.lateral = lerp(this.lateral, this.lateralTarget, Math.min(1, dt * 6));
+
+    // Recoil decay
+    this.recoil = Math.max(0, this.recoil - dt * 60);
+
+    // Muzzle flash
+    if (this.muzzleFlash > 0) this.muzzleFlash -= dt;
+    if (this.flashHit > 0) this.flashHit -= dt;
+
+    // Abilities
+    if (this.abilityActive > 0) {
+      this.abilityActive -= dt;
+      if (this.role.id === 'paratrooper' && this.firing) {
+        this.tryFire(); // auto-fire during ability
+      }
+    }
+
+    // Reloading
+    if (this.reloading) {
+      this.reloadTimer -= dt;
+      if (this.reloadTimer <= 0) {
+        const w = this.role.weapon;
+        const need = w.mag - this.mag;
+        const take = Math.min(need, this.reserve);
+        this.mag += take;
+        this.reserve -= take;
+        this.reloading = false;
+        const el = document.getElementById('hud-reload');
+        if (el) el.classList.remove('show');
+        this.updateAmmoHUD();
+      }
+    }
+
+    // Auto-fire when mouse held for auto weapons
+    if (this.firing && this.role.weapon.auto && !this.reloading) {
+      this.tryFire();
+    }
+
+    // Wave state machine
     if (this.state === 'pre-wave') {
       this.waveTimer -= dt;
       if (this.waveTimer <= 0) this.spawnWave();
@@ -700,16 +953,17 @@ class Game {
       if (this.enemies.length === 0) {
         if (this.wave >= this.level.waves) {
           this.state = 'pre-boss';
-          this.waveTimer = 1.8;
-          this.toast('All waves cleared!', 1500);
+          this.waveTimer = 2.0;
+          this.toast('All waves clear', 1500);
+          this.showIntelFact();
         } else {
           this.state = 'pre-wave';
           this.wave++;
-          this.waveTimer = 2.2;
-          this.maybeDropHealth();
+          this.waveTimer = 2.5;
+          this.showIntelFact();
+          const wel = document.getElementById('hud-wave');
+          if (wel) wel.textContent = this.wave;
         }
-        const wel = document.getElementById('hud-wave');
-        if (wel) wel.textContent = this.wave;
       }
     } else if (this.state === 'pre-boss') {
       this.waveTimer -= dt;
@@ -721,41 +975,50 @@ class Game {
       }
     }
 
-    // Player update
-    this.player.update(dt, this);
-
     // Enemies
-    for (const e of this.enemies) e.update(dt, this);
-    this.enemies = this.enemies.filter(e => !e.dead);
+    for (const e of this.enemies) this.updateEnemy(e, dt);
+    this.enemies = this.enemies.filter(e => !(e.dead && e.dying <= 0));
 
-    // Bullets
-    for (const b of this.bullets) b.update(dt, this);
-    this.bullets = this.bullets.filter(b => b.life > 0);
+    // Tracers
+    for (const t of this.tracers) t.age += dt;
+    this.tracers = this.tracers.filter(t => t.age < 0.12);
 
     // Particles
-    for (const p of this.particles) p.update(dt);
+    for (const p of this.particles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 30 * dt;
+      p.vx *= 0.96; p.vy *= 0.96;
+      p.life -= dt;
+    }
     this.particles = this.particles.filter(p => p.life > 0);
 
-    // Pickups
-    for (const p of this.pickups) p.update(dt, this);
-    this.pickups = this.pickups.filter(p => !p.taken);
-
-    // Floating texts
+    // Floats
     for (const f of this.floats) { f.life -= dt; f.y -= dt * 40; }
     this.floats = this.floats.filter(f => f.life > 0);
 
-    // Player firing — auto-aim closest enemy in range
-    const r = this.player.role;
-    if (this.time * 1000 - this.lastShot >= r.fireRate) {
-      const target = this.closestEnemy(this.player, r.range);
-      if (target) {
-        this.fireFromPlayer(target);
-        this.lastShot = this.time * 1000;
-      }
+    // Grenades
+    for (const g of this.grenades) this.updateGrenade(g, dt);
+    this.grenades = this.grenades.filter(g => g.age < g.dur + 0.5);
+
+    // Allies advance slowly
+    for (const a of this.allies) {
+      if (!a.alive) continue;
+      a.z -= a.speed * dt;
+      a.anim += dt * 3;
+      if (a.z < 6) a.alive = false; // they walked past us, swap with new spawn
     }
+    // Replenish fallen allies occasionally
+    if (this.allies.filter(a => a.alive).length < 4 && Math.random() < dt * 0.5) {
+      this.allies.push({ x: rand(-1.4, 1.4), z: rand(40, 60), type: 'ally', anim: rand(0, 6), speed: rand(1.5, 3), alive: true });
+    }
+    this.allies = this.allies.filter(a => a.alive || a.z > 6);
+
+    // Smoke pillars drift
+    for (const s of this.smokePillars) { s.wob += dt * s.speed; }
 
     // Ability cooldown UI
-    const cd = r.ability.cooldown;
+    const cd = this.role.ability.cooldown;
     const since = this.time * 1000 - this.lastAbility;
     const fillEl = document.querySelector('.dday-hud-ability-fill');
     if (fillEl) {
@@ -764,17 +1027,28 @@ class Game {
       const ab = document.getElementById('hud-ability');
       if (ab) ab.classList.toggle('ready', pct >= 1);
     }
-    if (this.abilityActive > 0) this.abilityActive -= dt;
 
-    // HUD updates
-    const hpEl = document.getElementById('hud-hp');
-    const hpTextEl = document.getElementById('hud-hp-text');
-    if (hpEl) hpEl.style.width = (this.player.hp / r.hp * 100) + '%';
-    if (hpTextEl) hpTextEl.textContent = Math.max(0, Math.ceil(this.player.hp));
-    const scoreEl = document.getElementById('hud-score');
-    if (scoreEl) scoreEl.textContent = this.score;
+    // Enemy hover label
+    const labelEl = document.getElementById('hud-enemy');
+    let hovered = null;
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const p = this.projectEnemy(e);
+      if (!p) continue;
+      const w = p.w, h = p.h;
+      if (this.aimX >= p.cx - w / 2 && this.aimX <= p.cx + w / 2 &&
+          this.aimY >= p.cy - h && this.aimY <= p.cy + h * 0.15) {
+        if (!hovered || e.z < hovered.z) hovered = e;
+      }
+    }
+    if (hovered && labelEl) {
+      labelEl.innerHTML = `<b>${escapeHtml(hovered.type.name)}</b><span>${escapeHtml(hovered.type.weapon)}</span>`;
+      labelEl.classList.add('show');
+    } else if (labelEl) {
+      labelEl.classList.remove('show');
+    }
 
-    // Boss HP overlay
+    // Boss HP bar
     if (this.boss && !this.boss.dead) {
       let bossEl = document.getElementById('dday-boss-bar');
       if (!bossEl) {
@@ -784,134 +1058,639 @@ class Game {
         bossEl.innerHTML = '<span></span><i></i>';
         document.querySelector('.dday-play').appendChild(bossEl);
       }
-      bossEl.querySelector('span').textContent = (this.boss.bossLabel || 'Position') + ' — ' + Math.ceil(this.boss.hp);
+      bossEl.querySelector('span').textContent = (this.boss.type.name) + ' — ' + Math.ceil(this.boss.hp);
       bossEl.querySelector('i').style.width = (this.boss.hp / this.boss.maxHp * 100) + '%';
     } else {
       const bossEl = document.getElementById('dday-boss-bar');
       if (bossEl) bossEl.remove();
     }
+
+    // Update crosshair
+    const ch = document.getElementById('dday-crosshair');
+    if (ch) {
+      ch.style.left = this.aimX + 'px';
+      ch.style.top = this.aimY + 'px';
+      ch.classList.toggle('over-enemy', !!hovered);
+    }
   }
 
-  maybeDropHealth() {
-    if (Math.random() < 0.65 || this.player.hp < this.player.role.hp * 0.5) {
-      this.pickups.push({
-        x: rand(80, this.w - 80), y: rand(this.h * 0.3, this.h * 0.7),
-        type: 'medkit', taken: false, bob: 0,
-        update(dt) { this.bob += dt; }
+  showIntelFact() {
+    const facts = this.level.facts;
+    if (!facts || facts.length === 0) return;
+    const f = facts[this.factIndex % facts.length];
+    this.factIndex++;
+    this.intel(f);
+  }
+
+  updateEnemy(e, dt) {
+    if (e.dead) {
+      e.dying -= dt;
+      return;
+    }
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+    e.bobPhase += dt * 5;
+    const speed = e.type.speed;
+    const now = this.time * 1000;
+
+    if (e.type.isStatic) {
+      // Bunkers don't advance
+    } else if (e.stopped && now < e.stopUntil) {
+      // Standing still while shooting
+    } else {
+      // Advance toward us
+      e.z = Math.max(8, e.z - speed * dt);
+      if (e.z <= e.nextCoverStop && !e.stopped) {
+        e.stopped = true;
+        e.stopUntil = now + rand(1500, 2800);
+        e.nextCoverStop = Math.max(8, e.z - rand(15, 25));
+      } else if (e.stopped && now >= e.stopUntil) {
+        e.stopped = false;
+      }
+    }
+
+    // Reach point-blank = damage player & retreat
+    if (e.z <= 9 && !e.type.isStatic) {
+      this.damagePlayer(e.type.dmg * 1.2 * dt);
+    }
+
+    // Fire at player
+    if (e.z < e.type.range && now - e.lastShot > e.type.fireMs) {
+      const burst = e.type.burst || 1;
+      e.lastShot = now;
+      for (let i = 0; i < burst; i++) {
+        setTimeout(() => {
+          if (e.dead || !game || game.over) return;
+          this.enemyShoot(e);
+        }, i * 90);
+      }
+    }
+  }
+
+  enemyShoot(e) {
+    // Compute hit chance: closer = more accurate
+    const ranged = clamp(1 - e.z / e.type.range, 0.1, 1.0);
+    const acc = e.type.accuracy * ranged;
+    const hit = Math.random() < acc * (this.lateral * 0.5 + 0.7); // lateral lean reduces hit chance
+    const p = this.projectEnemy(e);
+    if (p) {
+      this.particles.push({
+        x: p.cx, y: p.cy - p.h * 0.45,
+        vx: 0, vy: 0,
+        color: '#ffeb88',
+        size: 14, life: 0.08, maxLife: 0.08
       });
     }
-  }
-
-  fireFromPlayer(target) {
-    const r = this.player.role;
-    const dx = target.x - this.player.x;
-    const dy = target.y - this.player.y;
-    let ang = Math.atan2(dy, dx);
-    if (r.spread) ang += rand(-r.spread, r.spread);
-    this.player.facing = ang;
-    const speed = r.bulletSpeed;
-    const dmg = r.damage * (this.abilityActive > 0 && r.id === 'heavy' ? 2 : 1);
-    this.bullets.push(new Bullet(
-      this.player.x, this.player.y - 6,
-      Math.cos(ang) * speed, Math.sin(ang) * speed,
-      dmg, 'player', r.bulletColor, r.bulletSize, r.range / speed
-    ));
-    this.particles.push(new Particle(this.player.x + Math.cos(ang) * 16, this.player.y + Math.sin(ang) * 16 - 6, '#fff5b0', 8, 0.12));
-  }
-
-  useAbility() {
-    const r = this.player.role;
-    const since = this.time * 1000 - this.lastAbility;
-    if (since < r.ability.cooldown) return;
-    this.lastAbility = this.time * 1000;
-    if (r.id === 'rifleman') {
-      // Aimed shot ×3 dmg piercing
-      const target = this.closestEnemy(this.player, r.range * 1.5) || { x: this.player.x, y: this.player.y - 200 };
-      const ang = angleTo(this.player, target);
-      const b = new Bullet(this.player.x, this.player.y - 6,
-        Math.cos(ang) * (r.bulletSpeed * 1.5), Math.sin(ang) * (r.bulletSpeed * 1.5),
-        r.damage * 3, 'player', '#ffeb6a', 8, 0.9);
-      b.pierce = true;
-      this.bullets.push(b);
-      this.shakeFx(8);
-    } else if (r.id === 'paratrooper') {
-      // Smoke dash forward (facing direction)
-      const ang = this.player.facing || -Math.PI / 2;
-      this.player.x += Math.cos(ang) * 160;
-      this.player.y += Math.sin(ang) * 160;
-      this.player.x = clamp(this.player.x, 30, this.w - 30);
-      this.player.y = clamp(this.player.y, 30, this.h - 30);
-      this.player.iframes = 1.2;
-      for (let i = 0; i < 18; i++) this.particles.push(new Particle(this.player.x + rand(-20, 20), this.player.y + rand(-20, 20), 'rgba(220,220,220,0.7)', rand(8, 16), 0.8));
-    } else if (r.id === 'medic') {
-      this.player.hp = Math.min(r.hp, this.player.hp + 60);
-      for (let i = 0; i < 14; i++) this.particles.push(new Particle(this.player.x + rand(-18, 18), this.player.y + rand(-18, 18), '#ff8080', rand(6, 10), 0.6));
-      this.floats.push({ x: this.player.x, y: this.player.y - 24, text: '+60 HP', color: '#ff8080', life: 1.0 });
-    } else if (r.id === 'ranger') {
-      // Grenade — lobs to target then explodes
-      const target = this.closestEnemy(this.player, 800) || { x: this.player.x, y: this.player.y - 220 };
-      this.bullets.push(new Grenade(this.player.x, this.player.y - 6, target.x, target.y, 80));
-    } else if (r.id === 'sniper') {
-      // Piercing rail shot
-      const target = this.closestEnemy(this.player, 2000) || { x: this.player.x, y: this.player.y - 400 };
-      const ang = angleTo(this.player, target);
-      const b = new Bullet(this.player.x, this.player.y - 6,
-        Math.cos(ang) * 1600, Math.sin(ang) * 1600,
-        r.damage * 1.5, 'player', '#c0e0ff', 5, 1.0);
-      b.pierce = true;
-      b.trail = true;
-      this.bullets.push(b);
-      this.shakeFx(10);
-    } else if (r.id === 'heavy') {
-      this.abilityActive = 2.0;
-      for (let i = 0; i < 16; i++) this.particles.push(new Particle(this.player.x + rand(-16, 16), this.player.y + rand(-16, 16), '#ffaa44', rand(6, 12), 0.7));
-      this.floats.push({ x: this.player.x, y: this.player.y - 24, text: 'BRACED!', color: '#ffaa44', life: 1.4 });
-    }
-  }
-
-  closestEnemy(from, maxRange) {
-    let best = null, bestD2 = (maxRange || 99999) ** 2;
-    for (const e of this.enemies) {
-      if (e.dead) continue;
-      const d = dist2(from, e);
-      if (d < bestD2) { best = e; bestD2 = d; }
-    }
-    return best;
-  }
-
-  shakeFx(mag) { this.shake = 0.35; this.shakeMag = mag; }
-
-  hitEnemy(e, dmg, fromBullet) {
-    e.hp -= dmg;
-    e.hitFlash = 0.12;
-    if (fromBullet) {
-      const ang = Math.atan2(fromBullet.vy, fromBullet.vx);
-      e.x += Math.cos(ang) * 4;
-      e.y += Math.sin(ang) * 4;
-      for (let i = 0; i < 5; i++) {
-        this.particles.push(new Particle(e.x, e.y, '#ffd95a', rand(4, 7), rand(0.15, 0.35)));
-      }
-    }
-    this.floats.push({ x: e.x + rand(-8, 8), y: e.y - 14, text: '' + Math.ceil(dmg), color: '#ffd95a', life: 0.7 });
-    if (e.hp <= 0 && !e.dead) {
-      e.dead = true;
-      this.kills++;
-      this.score += (e.boss ? 250 : (e.type === 'sniper' || e.type === 'mg' ? 30 : 15));
-      for (let i = 0; i < 14; i++) this.particles.push(new Particle(e.x, e.y, this.level.palette.blood, rand(6, 14), rand(0.4, 0.8)));
-      // Small chance to drop ammo (heals)
-      if (Math.random() < 0.12) {
-        this.pickups.push({ x: e.x, y: e.y, type: 'ammo', taken: false, bob: 0, update(dt) { this.bob += dt; } });
-      }
+    if (hit) {
+      this.damagePlayer(e.type.dmg * (e.boss ? 1.3 : 1));
+    } else {
+      // miss — sound it nearby (just shake a tiny bit)
+      this.shake = Math.max(this.shake, 0.06);
     }
   }
 
   damagePlayer(dmg) {
-    if (this.player.iframes > 0) return;
-    this.player.hp -= dmg;
-    this.player.hitFlash = 0.18;
-    this.shakeFx(6);
-    this.floats.push({ x: this.player.x + rand(-8, 8), y: this.player.y - 18, text: '-' + Math.ceil(dmg), color: '#ff5060', life: 0.7 });
-    if (this.player.hp <= 0) this.lose();
+    if (this.over) return;
+    this.hp = Math.max(0, this.hp - dmg);
+    this.shake = Math.min(0.35, this.shake + 0.1);
+    this.flashHit = 0.15;
+    this.updateHpHUD();
+    if (this.hp <= 0) this.lose();
+  }
+
+  updateHpHUD() {
+    const hpEl = document.getElementById('hud-hp');
+    const tEl = document.getElementById('hud-hp-text');
+    if (hpEl) hpEl.style.width = (this.hp / this.maxHp * 100) + '%';
+    if (tEl) tEl.textContent = Math.max(0, Math.ceil(this.hp));
+  }
+  updateAmmoHUD() {
+    const m = document.getElementById('hud-mag');
+    const r = document.getElementById('hud-reserve');
+    if (m) m.textContent = this.mag;
+    if (r) r.textContent = this.reserve;
+  }
+  updateScoreHUD() {
+    const s = document.getElementById('hud-score');
+    if (s) s.textContent = this.score;
+  }
+
+  updateGrenade(g, dt) {
+    g.age += dt;
+    if (g.age >= g.dur && !g.exploded) {
+      g.exploded = true;
+      // AoE damage at screen point — check which enemies project near g.ax/ay
+      const R = Math.min(this.w, this.h) * 0.18;
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        const p = this.projectEnemy(e);
+        if (!p) continue;
+        const dx = p.cx - g.ax, dy = (p.cy - p.h * 0.5) - g.ay;
+        if (Math.sqrt(dx * dx + dy * dy) < R) {
+          this.hitEnemy(e, 100);
+        }
+      }
+      // FX
+      for (let i = 0; i < 30; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = rand(40, 200);
+        this.particles.push({
+          x: g.ax, y: g.ay,
+          vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          color: ['#ffaa44', '#ff7030', '#ffffff'][Math.floor(Math.random() * 3)],
+          size: rand(6, 14), life: rand(0.4, 0.8), maxLife: 0.8
+        });
+      }
+      this.shake = 0.4;
+    }
+  }
+
+  // ---- PROJECTION ----
+
+  projectEnemy(e) {
+    const z = e.z;
+    if (z <= 0) return null;
+    const scale = 700 / z;
+    const baseSize = e.type.isVehicle ? 0.9 : (e.type.isStatic ? 1.1 : 0.55);
+    const sizePx = baseSize * scale;
+    const w = sizePx;
+    const h = sizePx * 1.8;
+    // Horizon at 0.45 of screen height
+    const horizon = this.h * 0.5;
+    const lateralOffset = -this.lateral * (this.w * 0.04);
+    const cx = this.w / 2 + (e.x / z) * 1100 + lateralOffset;
+    const groundY = horizon + 1000 / z;
+    const cy = groundY;
+    return { cx, cy, w, h, scale };
+  }
+
+  projectAlly(a) {
+    if (a.z <= 0) return null;
+    const scale = 700 / a.z;
+    const sizePx = 0.5 * scale;
+    const horizon = this.h * 0.5;
+    const lateralOffset = -this.lateral * (this.w * 0.04);
+    const cx = this.w / 2 + (a.x / a.z) * 1100 + lateralOffset;
+    const groundY = horizon + 1000 / a.z;
+    return { cx, cy: groundY, scale, sizePx };
+  }
+
+  projectParallax(p) {
+    if (p.z <= 0) return null;
+    const scale = 800 / p.z;
+    const horizon = this.h * 0.5;
+    const lateralOffset = -this.lateral * (this.w * 0.015);
+    const cx = this.w / 2 + (p.x * 800 / p.z) + lateralOffset;
+    return { cx, cy: horizon, scale };
+  }
+
+  // ---- RENDER ----
+
+  render(ctx) {
+    const W = this.w, H = this.h;
+    let sx = 0, sy = 0;
+    if (this.shake > 0) {
+      sx = rand(-this.shake * 14, this.shake * 14);
+      sy = rand(-this.shake * 14, this.shake * 14);
+      this.shake = Math.max(0, this.shake - 0.04);
+    }
+    ctx.save();
+    ctx.translate(sx, sy);
+
+    this.drawSky(ctx);
+    this.drawGround(ctx);
+    this.drawParallax(ctx);
+    this.drawSmokePillars(ctx);
+    this.drawAllies(ctx);
+    this.drawEnemies(ctx);
+    this.drawGrenades(ctx);
+    this.drawParticles(ctx);
+    this.drawTracers(ctx);
+    this.drawForeground(ctx);
+    this.drawGun(ctx);
+    this.drawFloats(ctx);
+    this.drawHitFlash(ctx);
+
+    ctx.restore();
+  }
+
+  drawSky(ctx) {
+    const p = this.level.palette;
+    const horizon = this.h * 0.5;
+    const grad = ctx.createLinearGradient(0, 0, 0, horizon);
+    grad.addColorStop(0, p.sky);
+    grad.addColorStop(1, p.sky2);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, this.w, horizon);
+  }
+
+  drawGround(ctx) {
+    const p = this.level.palette;
+    const horizon = this.h * 0.5;
+    const grad = ctx.createLinearGradient(0, horizon, 0, this.h);
+    grad.addColorStop(0, p.ground);
+    grad.addColorStop(1, p.ground2);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, horizon, this.w, this.h - horizon);
+    // Horizon line
+    ctx.fillStyle = p.horizon;
+    ctx.fillRect(0, horizon, this.w, 3);
+    // Ground perspective lines for sense of depth
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+    ctx.lineWidth = 1;
+    for (let i = -8; i <= 8; i++) {
+      ctx.beginPath();
+      ctx.moveTo(this.w / 2 + i * 30, horizon);
+      ctx.lineTo(this.w / 2 + i * 200, this.h);
+      ctx.stroke();
+    }
+  }
+
+  drawParallax(ctx) {
+    for (const p of this.parallax) {
+      const proj = this.projectParallax(p);
+      if (!proj) continue;
+      const sc = proj.scale * p.size * 0.4;
+      ctx.save();
+      ctx.translate(proj.cx, proj.cy);
+      if (p.type === 'ship') {
+        ctx.fillStyle = 'rgba(40,40,50,0.85)';
+        ctx.fillRect(-40 * sc, -10 * sc, 80 * sc, 8 * sc);
+        ctx.fillRect(-12 * sc, -22 * sc, 6 * sc, 12 * sc);
+      } else if (p.type === 'tree') {
+        ctx.fillStyle = 'rgba(30,40,20,0.85)';
+        ctx.beginPath();
+        ctx.arc(0, -16 * sc, 14 * sc, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#3a2418';
+        ctx.fillRect(-2 * sc, -4 * sc, 4 * sc, 8 * sc);
+      } else if (p.type === 'cliff') {
+        ctx.fillStyle = 'rgba(60,55,48,0.85)';
+        ctx.beginPath();
+        ctx.moveTo(-30 * sc, 0);
+        ctx.lineTo(-26 * sc, -28 * sc);
+        ctx.lineTo(0, -36 * sc);
+        ctx.lineTo(26 * sc, -30 * sc);
+        ctx.lineTo(30 * sc, 0);
+        ctx.closePath();
+        ctx.fill();
+      } else if (p.type === 'building') {
+        ctx.fillStyle = 'rgba(80,70,60,0.85)';
+        ctx.fillRect(-18 * sc, -22 * sc, 36 * sc, 24 * sc);
+        ctx.fillStyle = 'rgba(50,40,30,0.6)';
+        ctx.beginPath();
+        ctx.moveTo(-20 * sc, -22 * sc);
+        ctx.lineTo(0, -32 * sc);
+        ctx.lineTo(20 * sc, -22 * sc);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#1a1208';
+        for (let i = -1; i <= 1; i++) ctx.fillRect((-6 + i * 8) * sc, -16 * sc, 4 * sc, 6 * sc);
+      } else if (p.type === 'steeple') {
+        ctx.fillStyle = 'rgba(80,70,60,0.85)';
+        ctx.fillRect(-12 * sc, -30 * sc, 24 * sc, 32 * sc);
+        ctx.fillStyle = '#5a4838';
+        ctx.beginPath();
+        ctx.moveTo(-14 * sc, -30 * sc);
+        ctx.lineTo(0, -54 * sc);
+        ctx.lineTo(14 * sc, -30 * sc);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  drawSmokePillars(ctx) {
+    const horizon = this.h * 0.5;
+    for (const s of this.smokePillars) {
+      const scale = 800 / s.z;
+      const cx = this.w / 2 + (s.x * 800 / s.z) + (-this.lateral * this.w * 0.02);
+      const h = this.h * s.h * (scale / 12);
+      const w = 80 * (scale / 12);
+      const baseY = horizon + 800 / s.z * 0.5;
+      for (let i = 0; i < 6; i++) {
+        const t = i / 6;
+        const y = baseY - h * t;
+        const wb = w * (1 + t * 0.6) + Math.sin(s.wob + i) * 3;
+        ctx.fillStyle = `rgba(50,40,30,${0.5 - t * 0.35})`;
+        ctx.beginPath();
+        ctx.ellipse(cx + Math.sin(s.wob + i * 0.4) * 4, y, wb, h / 6 + 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  drawAllies(ctx) {
+    const sorted = this.allies.filter(a => a.alive).slice().sort((a, b) => b.z - a.z);
+    for (const a of sorted) {
+      const p = this.projectAlly(a);
+      if (!p) continue;
+      this.drawSoldier(ctx, p.cx, p.cy, p.sizePx * 0.6, '#4a6741', '#88c46a', 'helmet', false, a.anim);
+    }
+  }
+
+  drawEnemies(ctx) {
+    const sorted = this.enemies.slice().sort((a, b) => b.z - a.z);
+    for (const e of sorted) {
+      const p = this.projectEnemy(e);
+      if (!p) continue;
+      const sz = p.w;
+      if (e.dying > 0) {
+        ctx.save();
+        ctx.globalAlpha = e.dying * 1.5;
+        this.drawSoldier(ctx, p.cx, p.cy + (1 - e.dying) * sz * 0.4, sz * 0.7, e.type.color, e.type.accent, e.type.helmet, e.hitFlash > 0, e.bobPhase, true);
+        ctx.restore();
+        continue;
+      }
+      if (e.type.isStatic && e.type.helmet === 'bunker') {
+        this.drawBunker(ctx, p.cx, p.cy, sz, e);
+      } else if (e.type.isVehicle) {
+        this.drawTank(ctx, p.cx, p.cy, sz, e);
+      } else {
+        this.drawSoldier(ctx, p.cx, p.cy, sz * 0.7, e.type.color, e.type.accent, e.type.helmet, e.hitFlash > 0, e.bobPhase);
+      }
+      // HP bar
+      if (e.hp < e.maxHp || e.boss) {
+        const barW = sz * 0.9;
+        const y = p.cy - p.h * 1.05;
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.fillRect(p.cx - barW / 2, y, barW, 4);
+        ctx.fillStyle = e.boss ? '#c83040' : '#80c060';
+        ctx.fillRect(p.cx - barW / 2, y, barW * (e.hp / e.maxHp), 4);
+      }
+    }
+  }
+
+  drawSoldier(ctx, cx, cy, sz, color, accent, helmetType, flash, anim, dying) {
+    const bob = Math.sin(anim || 0) * sz * 0.04;
+    ctx.save();
+    ctx.translate(cx, cy + bob);
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath(); ctx.ellipse(0, 4, sz * 0.55, sz * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+    // Legs
+    ctx.fillStyle = flash ? '#fff' : color;
+    ctx.fillRect(-sz * 0.18, -sz * 0.4, sz * 0.16, sz * 0.5);
+    ctx.fillRect(sz * 0.02, -sz * 0.4, sz * 0.16, sz * 0.5);
+    // Body
+    ctx.fillStyle = flash ? '#fff' : color;
+    ctx.beginPath();
+    ctx.ellipse(0, -sz * 0.7, sz * 0.42, sz * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#1a1008'; ctx.lineWidth = Math.max(1, sz * 0.04);
+    ctx.stroke();
+    // Head
+    ctx.fillStyle = '#c89878';
+    ctx.beginPath();
+    ctx.arc(0, -sz * 1.3, sz * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#1a1008'; ctx.lineWidth = Math.max(1, sz * 0.03);
+    ctx.stroke();
+    // Helmet
+    ctx.fillStyle = flash ? '#fff' : accent;
+    if (helmetType === 'stahl') {
+      // German Stahlhelm — wider, flares out
+      ctx.beginPath();
+      ctx.ellipse(0, -sz * 1.42, sz * 0.42, sz * 0.22, 0, Math.PI, Math.PI * 2);
+      ctx.lineTo(sz * 0.35, -sz * 1.34);
+      ctx.lineTo(-sz * 0.35, -sz * 1.34);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#1a1008'; ctx.stroke();
+    } else if (helmetType === 'helmet') {
+      // US M1
+      ctx.beginPath();
+      ctx.ellipse(0, -sz * 1.42, sz * 0.36, sz * 0.22, 0, Math.PI, Math.PI * 2);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#1a1008'; ctx.stroke();
+    } else if (helmetType === 'cap') {
+      // Officer cap
+      ctx.fillRect(-sz * 0.32, -sz * 1.5, sz * 0.64, sz * 0.16);
+      ctx.fillStyle = '#1a1008';
+      ctx.fillRect(-sz * 0.34, -sz * 1.36, sz * 0.68, sz * 0.04);
+    }
+    // Gun (sticking out to one side)
+    if (!dying) {
+      ctx.fillStyle = '#2a1a0c';
+      ctx.fillRect(sz * 0.3, -sz * 0.85, sz * 0.6, sz * 0.08);
+    }
+    // Eyes
+    ctx.fillStyle = '#1a1008';
+    ctx.beginPath(); ctx.arc(-sz * 0.1, -sz * 1.3, sz * 0.04, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sz * 0.1, -sz * 1.3, sz * 0.04, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  drawBunker(ctx, cx, cy, sz, e) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath(); ctx.ellipse(0, sz * 0.05, sz * 1.0, sz * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+    // Concrete pillbox
+    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : '#5a5048';
+    ctx.fillRect(-sz * 0.9, -sz * 1.2, sz * 1.8, sz * 1.3);
+    ctx.strokeStyle = '#1a1008'; ctx.lineWidth = 2; ctx.strokeRect(-sz * 0.9, -sz * 1.2, sz * 1.8, sz * 1.3);
+    // Embrasure (gun slit)
+    ctx.fillStyle = '#0a0604';
+    ctx.fillRect(-sz * 0.6, -sz * 0.75, sz * 1.2, sz * 0.22);
+    // MG barrel
+    ctx.fillStyle = '#1a1008';
+    ctx.fillRect(-sz * 0.05, -sz * 0.7, sz * 0.5, sz * 0.08);
+    // Roof
+    ctx.fillStyle = '#3a3530';
+    ctx.fillRect(-sz * 1.0, -sz * 1.3, sz * 2.0, sz * 0.12);
+    ctx.restore();
+  }
+
+  drawTank(ctx, cx, cy, sz, e) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath(); ctx.ellipse(0, sz * 0.05, sz * 1.1, sz * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+    // Hull
+    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : '#4a4a3a';
+    ctx.fillRect(-sz * 1.0, -sz * 0.55, sz * 2.0, sz * 0.55);
+    // Tracks
+    ctx.fillStyle = '#1a1008';
+    ctx.fillRect(-sz * 1.05, -sz * 0.1, sz * 2.1, sz * 0.18);
+    // Turret
+    ctx.fillStyle = e.hitFlash > 0 ? '#fff' : '#5a5a4a';
+    ctx.fillRect(-sz * 0.6, -sz * 1.0, sz * 1.2, sz * 0.45);
+    // Gun barrel
+    ctx.fillStyle = '#1a1008';
+    ctx.fillRect(-sz * 0.05, -sz * 0.85, sz * 1.3, sz * 0.08);
+    // Cross / insignia
+    ctx.fillStyle = '#1a1008';
+    ctx.fillRect(-sz * 0.55, -sz * 0.4, sz * 0.18, sz * 0.04);
+    ctx.fillRect(-sz * 0.48, -sz * 0.5, sz * 0.04, sz * 0.18);
+    ctx.restore();
+  }
+
+  drawGrenades(ctx) {
+    for (const g of this.grenades) {
+      if (g.exploded) continue;
+      const p = clamp(g.age / g.dur, 0, 1);
+      // Arc from bottom-center to ax/ay
+      const startX = this.w / 2;
+      const startY = this.h - 80;
+      const x = lerp(startX, g.ax, p);
+      const y = lerp(startY, g.ay, p) - Math.sin(p * Math.PI) * 80;
+      ctx.fillStyle = '#1a2a18';
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#3a4a30'; ctx.lineWidth = 1; ctx.stroke();
+    }
+  }
+
+  drawParticles(ctx) {
+    for (const p of this.particles) {
+      const a = clamp(p.life / p.maxLife, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  drawTracers(ctx) {
+    for (const t of this.tracers) {
+      const a = 1 - t.age / 0.12;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = '#ffeb88';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#ffeb88';
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.moveTo(this.w / 2, this.h - 80);
+      ctx.lineTo(t.x, t.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  drawForeground(ctx) {
+    // Subtle vignette
+    const grad = ctx.createRadialGradient(this.w / 2, this.h / 2, this.h * 0.3, this.w / 2, this.h / 2, this.h * 0.9);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, this.w, this.h);
+  }
+
+  drawGun(ctx) {
+    const sw = Math.min(this.w, 900);
+    const sh = sw * 0.55;
+    const cx = this.w / 2 + this.lateral * 30;
+    const cy = this.h + sh * 0.18 - this.recoil * 1.8;
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // Left sleeve (olive)
+    ctx.fillStyle = '#4a5a38';
+    ctx.beginPath();
+    ctx.moveTo(-sw * 0.5, sh * 0.2);
+    ctx.lineTo(-sw * 0.42, -sh * 0.05);
+    ctx.lineTo(-sw * 0.2, -sh * 0.12);
+    ctx.lineTo(-sw * 0.12, sh * 0.2);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#1a1008'; ctx.lineWidth = 2; ctx.stroke();
+
+    // Right sleeve
+    ctx.fillStyle = '#4a5a38';
+    ctx.beginPath();
+    ctx.moveTo(sw * 0.5, sh * 0.2);
+    ctx.lineTo(sw * 0.42, -sh * 0.0);
+    ctx.lineTo(sw * 0.15, -sh * 0.1);
+    ctx.lineTo(sw * 0.05, sh * 0.2);
+    ctx.closePath(); ctx.fill();
+    ctx.stroke();
+
+    // Hands (gloves)
+    ctx.fillStyle = '#5a4028';
+    ctx.beginPath();
+    ctx.ellipse(-sw * 0.25, -sh * 0.05, sw * 0.07, sh * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(sw * 0.1, -sh * 0.08, sw * 0.07, sh * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+
+    // Rifle stock
+    ctx.fillStyle = '#4a3420';
+    ctx.beginPath();
+    ctx.moveTo(sw * 0.1, sh * 0.0);
+    ctx.lineTo(sw * 0.32, -sh * 0.06);
+    ctx.lineTo(sw * 0.34, sh * 0.05);
+    ctx.lineTo(sw * 0.12, sh * 0.12);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Receiver
+    ctx.fillStyle = '#3a2818';
+    ctx.fillRect(-sw * 0.05, -sh * 0.1, sw * 0.16, sh * 0.07);
+    ctx.strokeRect(-sw * 0.05, -sh * 0.1, sw * 0.16, sh * 0.07);
+
+    // Barrel — extends up + away
+    ctx.fillStyle = '#2a2418';
+    ctx.beginPath();
+    ctx.moveTo(-sw * 0.05, -sh * 0.05);
+    ctx.lineTo(-sw * 0.25, -sh * 0.32);
+    ctx.lineTo(-sw * 0.22, -sh * 0.34);
+    ctx.lineTo(-sw * 0.02, -sh * 0.08);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#0a0604'; ctx.stroke();
+
+    // Front sight
+    ctx.fillStyle = '#0a0604';
+    ctx.fillRect(-sw * 0.27, -sh * 0.36, sw * 0.02, sh * 0.05);
+
+    // Muzzle flash
+    if (this.muzzleFlash > 0) {
+      const a = this.muzzleFlash / 0.08;
+      ctx.save();
+      ctx.translate(-sw * 0.25, -sh * 0.36);
+      ctx.fillStyle = `rgba(255,235,140,${a})`;
+      ctx.beginPath();
+      for (let i = 0; i < 12; i++) {
+        const ang = i / 12 * Math.PI * 2;
+        const r = sw * (0.05 + Math.random() * 0.05);
+        if (i === 0) ctx.moveTo(Math.cos(ang) * r, Math.sin(ang) * r);
+        else ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  drawFloats(ctx) {
+    for (const f of this.floats) {
+      ctx.save();
+      ctx.globalAlpha = clamp(f.life, 0, 1);
+      ctx.font = 'bold 18px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#000';
+      ctx.fillText(f.text, f.x + 1, f.y + 1);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, f.y);
+      ctx.restore();
+    }
+  }
+
+  drawHitFlash(ctx) {
+    if (this.flashHit > 0) {
+      ctx.fillStyle = `rgba(180,30,30,${this.flashHit * 2})`;
+      ctx.fillRect(0, 0, this.w, this.h);
+    }
+    // Low-HP red overlay
+    if (this.hp / this.maxHp < 0.35) {
+      const a = (0.35 - this.hp / this.maxHp) / 0.35;
+      const grad = ctx.createRadialGradient(this.w / 2, this.h / 2, this.h * 0.2, this.w / 2, this.h / 2, this.h * 0.7);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, `rgba(180,30,30,${a * 0.5})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, this.w, this.h);
+    }
   }
 
   win() {
@@ -919,6 +1698,7 @@ class Game {
     this.over = true;
     state.score = this.score;
     state.wave = this.wave;
+    state.kills = this.kills;
     if (this.score > state.best) {
       state.best = this.score;
       localStorage.setItem('dday_best', state.best);
@@ -928,7 +1708,7 @@ class Game {
       state.unlocked = Math.min(LEVELS.length, nextLvl);
       localStorage.setItem('dday_unlocked', state.unlocked);
     }
-    setTimeout(() => go('win'), 600);
+    setTimeout(() => go('win'), 700);
   }
 
   lose() {
@@ -936,626 +1716,12 @@ class Game {
     this.over = true;
     state.score = this.score;
     state.wave = this.wave;
+    state.kills = this.kills;
     if (this.score > state.best) {
       state.best = this.score;
       localStorage.setItem('dday_best', state.best);
     }
     setTimeout(() => go('lose'), 700);
-  }
-
-  // ---- RENDER ----
-  render(ctx) {
-    const W = this.w, H = this.h;
-    let sx = 0, sy = 0;
-    if (this.shake > 0) {
-      sx = rand(-this.shakeMag, this.shakeMag);
-      sy = rand(-this.shakeMag, this.shakeMag);
-    }
-    ctx.save();
-    ctx.translate(sx, sy);
-    this.drawTerrain(ctx);
-    this.drawObstacles(ctx);
-
-    for (const p of this.pickups) this.drawPickup(ctx, p);
-    for (const b of this.bullets) b.render(ctx);
-    for (const e of this.enemies) e.render(ctx);
-    this.player.render(ctx, this);
-    for (const p of this.particles) p.render(ctx);
-    for (const f of this.floats) this.drawFloat(ctx, f);
-    ctx.restore();
-  }
-
-  drawFloat(ctx, f) {
-    ctx.save();
-    ctx.globalAlpha = clamp(f.life, 0, 1);
-    ctx.font = 'bold 16px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#000';
-    ctx.fillText(f.text, f.x + 1, f.y + 1);
-    ctx.fillStyle = f.color;
-    ctx.fillText(f.text, f.x, f.y);
-    ctx.restore();
-  }
-
-  drawPickup(ctx, p) {
-    const yOff = Math.sin(p.bob * 3) * 4;
-    ctx.save();
-    ctx.translate(p.x, p.y + yOff);
-    if (p.type === 'medkit') {
-      ctx.fillStyle = '#f8f4e8';
-      ctx.fillRect(-12, -10, 24, 20);
-      ctx.fillStyle = '#c83030';
-      ctx.fillRect(-8, -3, 16, 6);
-      ctx.fillRect(-3, -8, 6, 16);
-    } else if (p.type === 'ammo') {
-      ctx.fillStyle = '#3a2a18';
-      ctx.fillRect(-10, -7, 20, 14);
-      ctx.fillStyle = '#c89040';
-      ctx.fillRect(-7, -4, 14, 8);
-    }
-    ctx.restore();
-  }
-
-  drawTerrain(ctx) {
-    const pal = this.level.palette;
-    const t = this.level.terrain;
-    // Base
-    ctx.fillStyle = pal.sand;
-    ctx.fillRect(0, 0, this.w, this.h);
-    // Layers per terrain
-    if (t === 'beach') {
-      // Water at top
-      ctx.fillStyle = pal.water;
-      ctx.fillRect(0, 0, this.w, this.h * 0.18);
-      // Foamy waves
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      const t0 = this.time * 30;
-      for (let i = 0; i < 12; i++) {
-        const x = ((i * 130 + t0) % (this.w + 200)) - 100;
-        ctx.fillRect(x, this.h * 0.16, 40, 4);
-      }
-      // Wet sand band
-      ctx.fillStyle = pal.sandDark;
-      ctx.fillRect(0, this.h * 0.18, this.w, 30);
-      // Distant dunes hint (top of beach near water)
-    } else if (t === 'bocage') {
-      // Grass patches
-      ctx.fillStyle = pal.foliage;
-      for (let i = 0; i < 60; i++) {
-        const x = (i * 137 + 11) % this.w;
-        const y = (i * 211 + 17) % this.h;
-        ctx.fillRect(x, y, 6, 6);
-      }
-    } else if (t === 'cliffs') {
-      // Rocky texture
-      ctx.fillStyle = pal.sandDark;
-      for (let i = 0; i < 80; i++) {
-        const x = (i * 113 + 11) % this.w;
-        const y = (i * 197 + 17) % this.h;
-        ctx.beginPath();
-        ctx.arc(x, y, 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      // Cliff edge at top
-      ctx.fillStyle = '#5a5048';
-      ctx.fillRect(0, 0, this.w, 24);
-    } else if (t === 'town') {
-      // Cobble texture
-      ctx.fillStyle = pal.sandDark;
-      for (let y = 0; y < this.h; y += 22) {
-        for (let x = 0; x < this.w; x += 22) {
-          ctx.fillRect(x + (y / 22 % 2 === 0 ? 0 : 11), y, 10, 10);
-        }
-      }
-    }
-    // Subtle vignette
-    const grad = ctx.createRadialGradient(this.w / 2, this.h / 2, this.h * 0.3, this.w / 2, this.h / 2, this.h * 0.85);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.35)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, this.w, this.h);
-  }
-
-  drawObstacles(ctx) {
-    for (const o of this.obstacles) {
-      ctx.save();
-      ctx.translate(o.x, o.y);
-      if (o.type === 'hedgehog') {
-        ctx.strokeStyle = '#3a2818';
-        ctx.lineWidth = 5;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(-o.r, -o.r); ctx.lineTo(o.r, o.r);
-        ctx.moveTo(o.r, -o.r);  ctx.lineTo(-o.r, o.r);
-        ctx.moveTo(0, -o.r);    ctx.lineTo(0, o.r);
-        ctx.stroke();
-        ctx.fillStyle = '#1a1008';
-        ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
-      } else if (o.type === 'sandbag') {
-        ctx.fillStyle = '#a89070';
-        for (let i = 0; i < 3; i++) {
-          ctx.beginPath();
-          ctx.ellipse(0, -8 + i * 10, o.r * 0.9, 8, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.strokeStyle = '#806040';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      } else if (o.type === 'bush') {
-        ctx.fillStyle = this.level.palette.foliage;
-        ctx.beginPath(); ctx.arc(0, 0, o.r, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
-        ctx.beginPath(); ctx.arc(o.r * 0.3, o.r * 0.3, o.r * 0.6, 0, Math.PI * 2); ctx.fill();
-      } else if (o.type === 'rock') {
-        ctx.fillStyle = this.level.palette.stone;
-        ctx.beginPath();
-        const sides = 7;
-        for (let i = 0; i <= sides; i++) {
-          const a = (i / sides) * Math.PI * 2;
-          const rr = o.r * (0.85 + (Math.sin(i * 1.7) * 0.15));
-          if (i === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
-          else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
-        }
-        ctx.fill();
-        ctx.strokeStyle = '#4a4540';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      } else if (o.type === 'wall') {
-        ctx.fillStyle = this.level.palette.stone;
-        ctx.fillRect(-o.r, -o.r * 0.7, o.r * 2, o.r * 1.4);
-        ctx.strokeStyle = '#3a3530';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(-o.r, -o.r * 0.7, o.r * 2, o.r * 1.4);
-        ctx.fillStyle = 'rgba(0,0,0,0.15)';
-        for (let y = -1; y <= 1; y++)
-          for (let x = -1; x <= 1; x++)
-            ctx.fillRect(-o.r + 8 + x * 28, -o.r * 0.7 + 12 + y * 16, 14, 8);
-      }
-      ctx.restore();
-    }
-  }
-}
-
-// ============================================================
-// PLAYER
-// ============================================================
-
-class Player {
-  constructor(x, y, role) {
-    this.x = x; this.y = y;
-    this.role = role;
-    this.hp = role.hp;
-    this.r = 18;
-    this.facing = -Math.PI / 2;
-    this.hitFlash = 0;
-    this.iframes = 0;
-    this.step = 0;
-  }
-  update(dt, game) {
-    let dx = 0, dy = 0;
-    if (keys['w'] || keys['arrowup'])    dy -= 1;
-    if (keys['s'] || keys['arrowdown'])  dy += 1;
-    if (keys['a'] || keys['arrowleft'])  dx -= 1;
-    if (keys['d'] || keys['arrowright']) dx += 1;
-    if (touch.active) {
-      dx += touch.x;
-      dy += touch.y;
-    }
-    const len = Math.hypot(dx, dy);
-    if (len > 0) { dx /= len; dy /= len; }
-    const sp = this.role.speed;
-    this.x += dx * sp * dt;
-    this.y += dy * sp * dt;
-    this.x = clamp(this.x, 24, game.w - 24);
-    this.y = clamp(this.y, 24, game.h - 24);
-
-    // Obstacle collision (push out)
-    for (const o of game.obstacles) {
-      const d = dist(this, o);
-      const minD = this.r + o.r * 0.8;
-      if (d < minD) {
-        const ang = Math.atan2(this.y - o.y, this.x - o.x);
-        this.x = o.x + Math.cos(ang) * minD;
-        this.y = o.y + Math.sin(ang) * minD;
-      }
-    }
-
-    // Pickup collection
-    for (const p of game.pickups) {
-      if (!p.taken && dist(this, p) < 26) {
-        p.taken = true;
-        if (p.type === 'medkit') {
-          this.hp = Math.min(this.role.hp, this.hp + 35);
-          game.floats.push({ x: this.x, y: this.y - 24, text: '+35 HP', color: '#80ff80', life: 0.9 });
-        } else if (p.type === 'ammo') {
-          game.score += 50;
-          game.floats.push({ x: this.x, y: this.y - 24, text: '+50', color: '#ffd95a', life: 0.9 });
-        }
-      }
-    }
-
-    if (len > 0) this.step += dt * 8;
-    if (this.hitFlash > 0) this.hitFlash -= dt;
-    if (this.iframes > 0) this.iframes -= dt;
-  }
-  render(ctx, game) {
-    const r = this.role;
-    const t = game.time;
-    const bob = Math.sin(this.step) * 1.8;
-    ctx.save();
-    ctx.translate(this.x, this.y + bob);
-
-    // Drop shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath(); ctx.ellipse(0, 14, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
-
-    // Body
-    ctx.fillStyle = this.hitFlash > 0 ? '#ffffff' : r.color;
-    ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
-    // Body outline
-    ctx.strokeStyle = '#1a1008';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Helmet
-    ctx.fillStyle = r.accent;
-    ctx.beginPath(); ctx.arc(0, -4, 13, Math.PI, 0); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#1a1008';
-    ctx.fillRect(-13, -4, 26, 2);
-
-    // Face (small)
-    ctx.fillStyle = '#1a1008';
-    ctx.beginPath(); ctx.arc(-4, 2, 1.6, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(4, 2, 1.6, 0, Math.PI * 2); ctx.fill();
-
-    // Gun pointing in facing direction
-    ctx.rotate(this.facing);
-    ctx.fillStyle = '#3a2a18';
-    ctx.fillRect(8, -2, 18, 4);
-    ctx.fillStyle = '#1a1008';
-    ctx.fillRect(22, -1, 6, 2);
-
-    // I-frame ring
-    if (this.iframes > 0) {
-      ctx.rotate(-this.facing);
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.stroke();
-    }
-
-    ctx.restore();
-  }
-}
-
-// ============================================================
-// ENEMY
-// ============================================================
-
-class Enemy {
-  constructor(x, y, type, hpMul, palette, boss) {
-    this.x = x; this.y = y;
-    this.type = type;
-    this.palette = palette;
-    this.boss = boss || false;
-    this.hitFlash = 0;
-    this.dead = false;
-    this.lastShot = 0;
-    this.facing = Math.PI / 2;
-    this.step = 0;
-
-    const t = TYPES[type] || TYPES.infantry;
-    this.hp = Math.max(1, t.hp * (hpMul || 1));
-    this.maxHp = this.hp;
-    this.speed = t.speed;
-    this.damage = t.damage;
-    this.fireRate = t.fireRate;
-    this.range = t.range;
-    this.bulletSpeed = t.bulletSpeed;
-    this.r = t.r;
-    this.color = t.color;
-    this.accent = t.accent;
-    this.shootingType = t.shootingType || 'single';
-    this.bossLabel = t.bossLabel;
-    if (boss) {
-      this.r = t.bossR || 40;
-      this.color = t.bossColor || t.color;
-      this.speed *= 0.6;
-      this.damage *= 1.2;
-    }
-  }
-  update(dt, game) {
-    this.step += dt * 4;
-    if (this.hitFlash > 0) this.hitFlash -= dt;
-    const p = game.player;
-    const d = dist(this, p);
-
-    // Move toward player but stop at preferred range
-    const preferred = this.range * 0.7;
-    if (d > preferred) {
-      const ang = angleTo(this, p);
-      this.x += Math.cos(ang) * this.speed * dt;
-      this.y += Math.sin(ang) * this.speed * dt;
-      this.facing = ang;
-    } else if (d < preferred * 0.6 && this.type !== 'mg') {
-      // back away a bit
-      const ang = angleTo(this, p);
-      this.x -= Math.cos(ang) * this.speed * 0.5 * dt;
-      this.y -= Math.sin(ang) * this.speed * 0.5 * dt;
-      this.facing = ang;
-    } else {
-      this.facing = angleTo(this, p);
-    }
-
-    // Stay in bounds
-    this.x = clamp(this.x, 18, game.w - 18);
-    this.y = clamp(this.y, 18, game.h - 18);
-
-    // Avoid obstacles
-    for (const o of game.obstacles) {
-      const od = dist(this, o);
-      const minD = this.r + o.r * 0.8;
-      if (od < minD) {
-        const ang = Math.atan2(this.y - o.y, this.x - o.x);
-        this.x = o.x + Math.cos(ang) * minD;
-        this.y = o.y + Math.sin(ang) * minD;
-      }
-    }
-
-    // Melee touch damage
-    if (d < this.r + p.r) {
-      game.damagePlayer(this.damage * 0.6 * dt);
-    }
-
-    // Ranged firing
-    if (this.fireRate > 0 && d < this.range && (game.time * 1000 - this.lastShot) > this.fireRate) {
-      const ang = angleTo(this, p);
-      if (this.shootingType === 'burst') {
-        for (let i = 0; i < 3; i++) setTimeout(() => {
-          if (this.dead) return;
-          const a = ang + rand(-0.05, 0.05);
-          game.bullets.push(new Bullet(this.x, this.y, Math.cos(a) * this.bulletSpeed, Math.sin(a) * this.bulletSpeed, this.damage, 'enemy', '#ff6644', 4, 1.4));
-        }, i * 80);
-      } else {
-        const a = ang + rand(-0.04, 0.04);
-        game.bullets.push(new Bullet(this.x, this.y, Math.cos(a) * this.bulletSpeed, Math.sin(a) * this.bulletSpeed, this.damage, 'enemy', '#ff6644', 4, 1.4));
-      }
-      this.lastShot = game.time * 1000;
-    }
-  }
-  render(ctx) {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath(); ctx.ellipse(0, this.r * 0.8, this.r * 0.85, this.r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
-
-    // Body
-    ctx.fillStyle = this.hitFlash > 0 ? '#ffffff' : this.color;
-    ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#1a1008'; ctx.lineWidth = 2; ctx.stroke();
-
-    // Helmet (Stahlhelm style — flatter)
-    ctx.fillStyle = this.accent;
-    ctx.beginPath(); ctx.arc(0, -4, this.r * 0.85, Math.PI * 0.95, Math.PI * 2.05, true); ctx.closePath(); ctx.fill();
-    // Helmet rim
-    ctx.fillStyle = '#1a1008';
-    ctx.fillRect(-this.r * 0.9, -2, this.r * 1.8, 2);
-
-    // Eyes
-    ctx.fillStyle = '#1a1008';
-    ctx.beginPath(); ctx.arc(-this.r * 0.25, 2, 1.5, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(this.r * 0.25, 2, 1.5, 0, Math.PI * 2); ctx.fill();
-
-    // Gun
-    ctx.rotate(this.facing);
-    ctx.fillStyle = '#2a1a0c';
-    ctx.fillRect(this.r * 0.6, -2, this.r * 0.9, 3);
-
-    // Boss crown indicator
-    ctx.rotate(-this.facing);
-    if (this.boss) {
-      ctx.fillStyle = '#c0a040';
-      ctx.beginPath();
-      ctx.moveTo(-10, -this.r - 6);
-      ctx.lineTo(-6, -this.r - 14);
-      ctx.lineTo(-2, -this.r - 8);
-      ctx.lineTo(2, -this.r - 16);
-      ctx.lineTo(6, -this.r - 8);
-      ctx.lineTo(10, -this.r - 14);
-      ctx.lineTo(14, -this.r - 6);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // HP bar
-    if (!this.dead && (this.hp < this.maxHp || this.boss)) {
-      const w = this.r * 2;
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(-w / 2, this.r + 4, w, 4);
-      ctx.fillStyle = this.boss ? '#c83040' : '#80c060';
-      ctx.fillRect(-w / 2, this.r + 4, w * (this.hp / this.maxHp), 4);
-    }
-
-    ctx.restore();
-  }
-}
-
-const TYPES = {
-  infantry: {
-    hp: 50, speed: 90, damage: 8, fireRate: 1400, range: 240, bulletSpeed: 280,
-    r: 16, color: '#5a5550', accent: '#7a7570', shootingType: 'single', bossLabel: 'Officer'
-  },
-  rifleman: {
-    hp: 80, speed: 70, damage: 12, fireRate: 1100, range: 320, bulletSpeed: 360,
-    r: 17, color: '#3a4a3a', accent: '#5a6850', shootingType: 'single'
-  },
-  mg: {
-    hp: 140, speed: 30, damage: 6, fireRate: 200, range: 360, bulletSpeed: 380,
-    r: 22, color: '#3a3a48', accent: '#5a5060', shootingType: 'single', bossLabel: 'MG Position',
-    bossR: 50, bossColor: '#48485a'
-  },
-  sniper: {
-    hp: 60, speed: 50, damage: 28, fireRate: 1800, range: 520, bulletSpeed: 700,
-    r: 16, color: '#5a4848', accent: '#7a6868', shootingType: 'single'
-  },
-  tank: {
-    hp: 800, speed: 25, damage: 18, fireRate: 1600, range: 400, bulletSpeed: 320,
-    r: 36, color: '#4a4a3a', accent: '#6a6a4a', shootingType: 'single', bossLabel: 'Panzer IV',
-    bossR: 54, bossColor: '#4a4a3a'
-  },
-  officer: {
-    hp: 200, speed: 70, damage: 12, fireRate: 700, range: 320, bulletSpeed: 360,
-    r: 18, color: '#48383a', accent: '#7a5860', shootingType: 'burst', bossLabel: 'SS Officer',
-    bossR: 44, bossColor: '#3a2840'
-  },
-  mg_nest: { // alias for boss
-    hp: 480, speed: 0, damage: 8, fireRate: 180, range: 420, bulletSpeed: 400,
-    r: 28, color: '#3a3a48', accent: '#5a5060', shootingType: 'single', bossLabel: 'MG-42 Bunker',
-    bossR: 56, bossColor: '#3a2828'
-  }
-};
-
-// ============================================================
-// BULLET
-// ============================================================
-
-class Bullet {
-  constructor(x, y, vx, vy, dmg, owner, color, size, life) {
-    this.x = x; this.y = y; this.vx = vx; this.vy = vy;
-    this.dmg = dmg; this.owner = owner;
-    this.color = color || '#ffd95a';
-    this.size = size || 4;
-    this.life = life || 1.2;
-    this.pierce = false;
-    this.trail = false;
-    this.hitSet = new Set();
-  }
-  update(dt, game) {
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
-    this.life -= dt;
-    if (this.x < -20 || this.x > game.w + 20 || this.y < -20 || this.y > game.h + 20) { this.life = 0; return; }
-
-    // Obstacle hit
-    for (const o of game.obstacles) {
-      if (o.type === 'bush') continue; // bushes are see-through-ish
-      const d2 = (this.x - o.x) ** 2 + (this.y - o.y) ** 2;
-      if (d2 < (o.r * 0.7 + this.size) ** 2) {
-        this.life = 0;
-        game.particles.push(new Particle(this.x, this.y, '#888', 6, 0.2));
-        return;
-      }
-    }
-
-    if (this.owner === 'player') {
-      for (const e of game.enemies) {
-        if (e.dead) continue;
-        if (this.hitSet.has(e)) continue;
-        const d2 = (this.x - e.x) ** 2 + (this.y - e.y) ** 2;
-        if (d2 < (e.r + this.size) ** 2) {
-          game.hitEnemy(e, this.dmg, this);
-          this.hitSet.add(e);
-          if (!this.pierce) { this.life = 0; return; }
-        }
-      }
-    } else {
-      // hits player
-      const p = game.player;
-      const d2 = (this.x - p.x) ** 2 + (this.y - p.y) ** 2;
-      if (d2 < (p.r + this.size) ** 2) {
-        game.damagePlayer(this.dmg);
-        this.life = 0;
-        return;
-      }
-    }
-
-    if (this.trail) {
-      game.particles.push(new Particle(this.x, this.y, this.color, 3, 0.15));
-    }
-  }
-  render(ctx) {
-    ctx.save();
-    ctx.fillStyle = this.color;
-    ctx.shadowColor = this.color;
-    ctx.shadowBlur = 8;
-    ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-}
-
-// ============================================================
-// GRENADE
-// ============================================================
-
-class Grenade {
-  constructor(sx, sy, tx, ty, dmg) {
-    this.x = sx; this.y = sy;
-    this.tx = tx; this.ty = ty;
-    this.t = 0;
-    this.dur = 0.6;
-    this.dmg = dmg;
-    this.life = this.dur;
-    this.owner = 'player';
-    this.sx = sx; this.sy = sy;
-  }
-  update(dt, game) {
-    this.t += dt;
-    this.life -= dt;
-    const p = clamp(this.t / this.dur, 0, 1);
-    this.x = this.sx + (this.tx - this.sx) * p;
-    this.y = this.sy + (this.ty - this.sy) * p - Math.sin(p * Math.PI) * 80;
-    if (this.life <= 0) {
-      // Explode
-      const radius = 90;
-      for (const e of game.enemies) {
-        if (e.dead) continue;
-        if (dist(this, e) < radius) {
-          game.hitEnemy(e, this.dmg, this);
-        }
-      }
-      for (let i = 0; i < 28; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const d = Math.random() * radius;
-        game.particles.push(new Particle(this.x + Math.cos(ang) * d, this.y + Math.sin(ang) * d, '#ffaa44', rand(10, 18), rand(0.4, 0.7)));
-      }
-      game.shakeFx(12);
-    }
-  }
-  render(ctx) {
-    ctx.save();
-    ctx.fillStyle = '#1a2a18';
-    ctx.beginPath(); ctx.arc(this.x, this.y, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#3a4a30';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.restore();
-  }
-}
-
-// ============================================================
-// PARTICLE
-// ============================================================
-
-class Particle {
-  constructor(x, y, color, size, life) {
-    this.x = x; this.y = y;
-    this.vx = rand(-30, 30); this.vy = rand(-30, 30);
-    this.color = color; this.size = size; this.life = life; this.maxLife = life;
-  }
-  update(dt) {
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
-    this.vx *= 0.92; this.vy *= 0.92;
-    this.life -= dt;
-  }
-  render(ctx) {
-    const a = clamp(this.life / this.maxLife, 0, 1);
-    ctx.save();
-    ctx.globalAlpha = a;
-    ctx.fillStyle = this.color;
-    ctx.beginPath(); ctx.arc(this.x, this.y, this.size * a, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
   }
 }
 
@@ -1566,70 +1732,80 @@ class Particle {
 function setupInput() {
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('mouseleave', () => { mouseDown = false; if (game) game.firing = false; });
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-  // Touch joystick
-  const stick = document.getElementById('dday-stick');
-  const knob = document.getElementById('dday-knob');
-  const ability = document.getElementById('dday-touch-ability');
-  if (stick && knob) {
-    let stickId = null;
-    let baseX = 0, baseY = 0;
-    const RAD = 50;
-    function start(e) {
-      const t = e.changedTouches[0];
-      stickId = t.identifier;
-      const rect = stick.getBoundingClientRect();
-      baseX = rect.left + rect.width / 2;
-      baseY = rect.top + rect.height / 2;
-      stick.style.opacity = 1;
-      touch.active = true;
-    }
-    function move(e) {
-      if (stickId === null) return;
-      for (const t of e.changedTouches) {
-        if (t.identifier === stickId) {
-          let dx = t.clientX - baseX;
-          let dy = t.clientY - baseY;
-          const len = Math.hypot(dx, dy);
-          if (len > RAD) { dx = dx / len * RAD; dy = dy / len * RAD; }
-          knob.style.transform = `translate(${dx}px, ${dy}px)`;
-          touch.x = dx / RAD;
-          touch.y = dy / RAD;
-        }
-      }
-    }
-    function end(e) {
-      for (const t of e.changedTouches) {
-        if (t.identifier === stickId) {
-          stickId = null;
-          knob.style.transform = 'translate(0,0)';
-          touch.active = false; touch.x = 0; touch.y = 0;
-        }
-      }
-    }
-    stick.addEventListener('touchstart', e => { e.preventDefault(); start(e); }, { passive: false });
-    window.addEventListener('touchmove', move, { passive: false });
-    window.addEventListener('touchend', end);
-    window.addEventListener('touchcancel', end);
-  }
-  if (ability) {
-    ability.addEventListener('click', e => { e.preventDefault(); if (game) game.useAbility(); });
-    ability.addEventListener('touchstart', e => { e.preventDefault(); if (game) game.useAbility(); }, { passive: false });
-  }
+  // Touch
+  canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+  canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+  canvas.addEventListener('touchend', onTouchEnd, { passive: false });
 }
 
 function onKeyDown(e) {
   const k = e.key.toLowerCase();
   keys[k] = true;
-  if (k === 'q' || k === ' ') { e.preventDefault(); if (game) game.useAbility(); }
-  if (k === 'p' || k === 'escape') {
-    if (game) { game.paused ? game.resume() : game.pause(); }
-  }
+  if (k === 'q') { e.preventDefault(); if (game) game.useAbility(); }
+  if (k === 'r') { e.preventDefault(); if (game) game.reload(); }
+  if (k === ' ') { e.preventDefault(); if (game) game.tryFire(); }
+  if (k === 'p' || k === 'escape') { if (game) { game.paused ? game.resume() : game.pause(); } }
 }
 function onKeyUp(e) { keys[e.key.toLowerCase()] = false; }
 
+function onMouseMove(e) {
+  mouseX = e.clientX; mouseY = e.clientY;
+  if (game) { game.aimX = mouseX; game.aimY = mouseY; }
+}
+function onMouseDown(e) {
+  mouseDown = true;
+  if (game) {
+    game.firing = true;
+    game.tryFire();
+  }
+}
+function onMouseUp() {
+  mouseDown = false;
+  if (game) game.firing = false;
+}
+
+let touchId = null;
+function onTouchStart(e) {
+  e.preventDefault();
+  // Ignore touches on the floating buttons (they handle their own events)
+  const t = e.changedTouches[0];
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  if (el && (el.id === 'dday-touch-ability' || el.id === 'dday-touch-reload' || el.id === 'dday-pause')) return;
+  if (touchId === null) {
+    touchId = t.identifier;
+    if (game) {
+      game.aimX = t.clientX;
+      game.aimY = t.clientY;
+      game.firing = true;
+      game.tryFire();
+    }
+  }
+}
+function onTouchMove(e) {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier === touchId) {
+      if (game) { game.aimX = t.clientX; game.aimY = t.clientY; }
+    }
+  }
+}
+function onTouchEnd(e) {
+  for (const t of e.changedTouches) {
+    if (t.identifier === touchId) {
+      touchId = null;
+      if (game) game.firing = false;
+    }
+  }
+}
+
 // ============================================================
-// SCREEN: RESULT (WIN/LOSE)
+// SCREEN: RESULT (with quiz)
 // ============================================================
 
 function renderResult(won) {
@@ -1639,6 +1815,10 @@ function renderResult(won) {
   const l = LEVELS[state.level];
   const r = ROLES[state.role];
   const newBest = state.score === state.best && state.score > 0;
+  const quiz = l.quiz;
+  const options = quiz.options.map((opt, i) => `
+    <button class="dday-quiz-opt" data-quiz="${i}">${escapeHtml(opt)}</button>
+  `).join('');
   app.innerHTML = `
     <section class="dday-screen dday-result ${won ? 'dday-result-win' : 'dday-result-lose'}">
       <div class="dday-result-card">
@@ -1647,12 +1827,21 @@ function renderResult(won) {
         <div class="dday-result-sub">${escapeHtml(l.name)} · ${escapeHtml(r.name)}</div>
         <div class="dday-result-stats">
           <div><b>${state.score}</b><span>Score</span></div>
-          <div><b>${state.wave}</b><span>Wave</span></div>
+          <div><b>${state.kills || 0}</b><span>Kills</span></div>
           <div><b>${state.best}</b><span>Best</span></div>
         </div>
         ${newBest ? '<div class="dday-result-new">⭐ NEW BEST</div>' : ''}
         ${won && state.unlocked > state.level + 1 ? `<div class="dday-result-unlock">🔓 Unlocked: <b>${escapeHtml(LEVELS[Math.min(state.level + 1, LEVELS.length - 1)].name)}</b></div>` : ''}
+
+        <div class="dday-quiz">
+          <div class="dday-quiz-label">⭐ HISTORICAL QUESTION (+500 bonus)</div>
+          <div class="dday-quiz-q">${escapeHtml(quiz.q)}</div>
+          <div class="dday-quiz-opts">${options}</div>
+          <div class="dday-quiz-explain" id="dday-quiz-explain"></div>
+        </div>
+
         <p class="dday-result-fact">📜 ${escapeHtml(l.historicalFact)}</p>
+
         <div class="dday-result-buttons">
           <button class="dday-btn" data-go="brief">Retry</button>
           <button class="dday-btn" data-go="level">Levels</button>
@@ -1662,15 +1851,28 @@ function renderResult(won) {
     </section>
   `;
   wireButtons();
-}
-
-// ============================================================
-// COMMON
-// ============================================================
-
-function wireButtons() {
-  app.querySelectorAll('[data-go]').forEach(el => {
-    el.addEventListener('click', () => go(el.getAttribute('data-go')));
+  let quizAnswered = false;
+  app.querySelectorAll('[data-quiz]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (quizAnswered) return;
+      quizAnswered = true;
+      const i = parseInt(btn.getAttribute('data-quiz'), 10);
+      const correct = i === quiz.correct;
+      app.querySelectorAll('[data-quiz]').forEach((b, j) => {
+        b.classList.add('answered');
+        if (j === quiz.correct) b.classList.add('right');
+        if (j === i && !correct) b.classList.add('wrong');
+      });
+      const ex = document.getElementById('dday-quiz-explain');
+      if (correct) {
+        state.best = Math.max(state.best, state.score + 500);
+        localStorage.setItem('dday_best', state.best);
+        ex.innerHTML = `<b style="color:#80ff80">+500 score!</b> ${escapeHtml(quiz.explain)}`;
+      } else {
+        ex.innerHTML = `<b style="color:#ff5a4a">Not quite.</b> ${escapeHtml(quiz.explain)}`;
+      }
+      ex.classList.add('show');
+    });
   });
 }
 
@@ -1678,14 +1880,8 @@ function wireButtons() {
 // BOOT
 // ============================================================
 
-function boot() {
-  go('title');
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', boot);
-} else {
-  boot();
-}
+function boot() { go('title'); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
 
 })();
