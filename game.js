@@ -6,7 +6,7 @@
    Touch: dual joysticks + fire button.
    ============================================================ */
 
-const BUILD_VERSION = 'v10 · 3D FPS';
+const BUILD_VERSION = 'v11 · armor';
 console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;font-weight:bold');
 
 (function () {
@@ -561,12 +561,12 @@ class FpsGame {
     this.scene.add(ground);
 
     if (t === 'beach') {
-      // Water at the player-spawn end (positive Z)
-      const waterGeo = new THREE.PlaneGeometry(200, 50);
+      // Wide water area extending behind player
+      const waterGeo = new THREE.PlaneGeometry(400, 200);
       const waterMat = new THREE.MeshLambertMaterial({ color: pal.water });
       const water = new THREE.Mesh(waterGeo, waterMat);
       water.rotation.x = -Math.PI/2;
-      water.position.set(0, 0.02, 75);
+      water.position.set(0, 0.02, 130);
       this.scene.add(water);
       this.water = water;
 
@@ -576,9 +576,11 @@ class FpsGame {
       wall.position.set(0, 1.5, -55);
       this.scene.add(wall);
 
-      // Bunkers at the far end
+      // Bunkers + flanking AT cannons at the far end
       this.makeBunker(-25, -52);
       this.makeBunker( 25, -52);
+      this.makePakCannon(-40, -50);
+      this.makePakCannon( 40, -50);
 
       // Czech hedgehogs scattered through middle (cover)
       for (let i=0; i<18; i++) {
@@ -588,6 +590,23 @@ class FpsGame {
       for (let i=0; i<8; i++) {
         this.makeSandbag(rand(-40,40), rand(-30,-10));
       }
+
+      // Knocked-out Sherman DD tanks — cover on the beach
+      this.makeShermanWreck(-18, 20);
+      this.makeShermanWreck( 22, 5);
+      this.makeShermanWreck(-30, -5);
+
+      // Higgins landing craft in the surf
+      this.makeHiggins(-22, 75, 0);              // mid-left, ramp open facing us
+      this.makeHiggins( 18, 80, 0.15);
+      this.makeHiggins( 50, 95, -0.3);           // far right
+      this.makeHiggins(-55, 100, 0.4);           // far left
+
+      // Distant destroyers in deep water
+      this.makeDestroyer(-70, 160, 0.1);
+      this.makeDestroyer( 0, 175, 0);
+      this.makeDestroyer( 80, 165, -0.05);
+      this.makeDestroyer(-30, 190, 0.2);
     } else if (t === 'bocage') {
       // Two long hedgerow walls with a gap, repeated
       for (let row=0; row<3; row++) {
@@ -598,6 +617,12 @@ class FpsGame {
           this.makeHedge(x, z);
         }
       }
+      // Knocked-out Sherman halfway through the field
+      this.makeShermanWreck(rand(-10, 10), -5);
+      // A burning halftrack at the far end
+      this.makeShermanWreck(rand(-25, 25), -45);
+      // A German PaK gun guarding the back hedgerow
+      this.makePakCannon(0, -52);
     } else if (t === 'cliffs') {
       // Lots of rocks
       for (let i=0; i<32; i++) this.makeRock(rand(-50,50), rand(-50, 50));
@@ -606,11 +631,25 @@ class FpsGame {
       const edge = new THREE.Mesh(new THREE.BoxGeometry(200, 4, 4), edgeMat);
       edge.position.set(0, 2, -60);
       this.scene.add(edge);
+      // Destroyed German gun emplacements
+      this.makePakCannon(-22, -50);
+      this.makePakCannon( 18, -45);
+      this.makePakCannon( 35, -52);
+      // Distant ships off-shore (one side is sea)
+      this.makeDestroyer(-60, 90, 0.05);
+      this.makeDestroyer( 30, 110, -0.1);
+      this.makeDestroyer( 80, 95, 0);
     } else if (t === 'town') {
       // Buildings
       for (let i=0; i<8; i++) this.makeBuilding(rand(-45,45), rand(-50, 50));
       // Church steeple in middle-far
       this.makeChurch(0, -50);
+      // Wrecked Panzer in the square
+      this.makeShermanWreck(15, -25);
+      // PaK gun at end of street
+      this.makePakCannon(-20, -45);
+      // Jeep near the player spawn
+      this.makeJeep(8, 50);
     }
 
     // Allies near player spawn
@@ -706,6 +745,175 @@ class FpsGame {
     this.scene.add(g);
     this.addObstacle(g, x, z, 3.5);
   }
+  // ---- Vehicles & gun emplacements ----
+
+  makeShermanWreck(x, z) {
+    const g = new THREE.Group();
+    const hullMat = new THREE.MeshLambertMaterial({ color: 0x4a4a3a });
+    const burntMat = new THREE.MeshLambertMaterial({ color: 0x1a1208 });
+    // Hull
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.2, 5.5), hullMat);
+    hull.position.y = 0.8; g.add(hull);
+    // Tracks
+    const trackMat = new THREE.MeshLambertMaterial({ color: 0x1a1008 });
+    const tL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 5.8), trackMat);
+    tL.position.set(-1.6, 0.3, 0); g.add(tL);
+    const tR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 5.8), trackMat);
+    tR.position.set( 1.6, 0.3, 0); g.add(tR);
+    // Turret (askew — knocked out)
+    const turret = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.9, 2.6), burntMat);
+    turret.position.y = 1.85; turret.rotation.y = rand(-0.6, 0.6); g.add(turret);
+    // Barrel (drooping)
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.0, 8), trackMat);
+    barrel.rotation.z = Math.PI/2; barrel.rotation.y = turret.rotation.y;
+    barrel.position.set(Math.sin(turret.rotation.y) * 2.4, 1.5, Math.cos(turret.rotation.y) * 2.4);
+    g.add(barrel);
+    // Smoke plume from hatches
+    const smoke = new THREE.Mesh(new THREE.SphereGeometry(0.8, 8, 6), new THREE.MeshLambertMaterial({ color: 0x3a3028, transparent: true, opacity: 0.7 }));
+    smoke.position.set(0, 3.2, 0); g.add(smoke);
+    const smoke2 = new THREE.Mesh(new THREE.SphereGeometry(1.1, 8, 6), new THREE.MeshLambertMaterial({ color: 0x2a2218, transparent: true, opacity: 0.5 }));
+    smoke2.position.set(0.3, 4.3, 0.2); g.add(smoke2);
+    g.position.set(x, 0, z);
+    g.rotation.y = rand(0, Math.PI * 2);
+    this.scene.add(g);
+    this.addObstacle(g, x, z, 2.2);
+    // animate smoke wobble
+    g.userData.smoke = [smoke, smoke2];
+    g.userData.t0 = Math.random() * 10;
+    if (!this._wrecks) this._wrecks = [];
+    this._wrecks.push(g);
+  }
+
+  makePakCannon(x, z) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: 0x3a4a3a });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x1a2018 });
+    // Gun shield
+    const shield = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.6, 0.15), mat);
+    shield.position.set(0, 1.0, 0.4); g.add(shield);
+    // Trail (legs splayed back)
+    const trailL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 2.4), dark);
+    trailL.position.set(-0.6, 0.3, -1.0); trailL.rotation.y = -0.3; g.add(trailL);
+    const trailR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 2.4), dark);
+    trailR.position.set( 0.6, 0.3, -1.0); trailR.rotation.y = 0.3; g.add(trailR);
+    // Wheels
+    const wheelGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.18, 14);
+    const wheelMat = new THREE.MeshLambertMaterial({ color: 0x1a1008 });
+    const wL = new THREE.Mesh(wheelGeo, wheelMat);
+    wL.rotation.z = Math.PI/2; wL.position.set(-1.2, 0.6, 0.2); g.add(wL);
+    const wR = new THREE.Mesh(wheelGeo, wheelMat);
+    wR.rotation.z = Math.PI/2; wR.position.set( 1.2, 0.6, 0.2); g.add(wR);
+    // Barrel (long)
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3.6, 10), dark);
+    barrel.rotation.x = Math.PI/2; barrel.position.set(0, 1.05, 2.0); g.add(barrel);
+    // Breech block
+    const breech = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.8), dark);
+    breech.position.set(0, 1.0, 0.6); g.add(breech);
+    g.position.set(x, 0, z);
+    g.rotation.y = Math.atan2(0 - x, 60 - z); // roughly face the beach center
+    this.scene.add(g);
+    this.addObstacle(g, x, z, 1.6);
+  }
+
+  makeHiggins(x, z, yawOffset) {
+    const g = new THREE.Group();
+    const hullMat = new THREE.MeshLambertMaterial({ color: 0x3a4a3a });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x1a1a18 });
+    const wood = new THREE.MeshLambertMaterial({ color: 0x6a5028 });
+    // Main hull (boat shape — wider at back, pointed front)
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.4, 8), hullMat);
+    hull.position.y = 0.7; g.add(hull);
+    // Sides higher
+    const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.0, 7.5), hullMat);
+    sideL.position.set(-1.85, 1.4, 0); g.add(sideL);
+    const sideR = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.0, 7.5), hullMat);
+    sideR.position.set( 1.85, 1.4, 0); g.add(sideR);
+    // Open ramp at front (facing -Z = toward beach), tilted down
+    const ramp = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.18, 3.2), wood);
+    ramp.position.set(0, 0.35, -5.0);
+    ramp.rotation.x = -0.45;
+    g.add(ramp);
+    // Back wall (control area)
+    const back = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.4, 0.4), hullMat);
+    back.position.set(0, 1.5, 3.9); g.add(back);
+    // Small wheelhouse on the back
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 0.7), dark);
+    cab.position.set(0, 2.4, 3.6); g.add(cab);
+    g.position.set(x, 0.2, z);
+    g.rotation.y = yawOffset || 0;
+    this.scene.add(g);
+    this.addObstacle(g, x, z, 3.5);
+  }
+
+  makeDestroyer(x, z, yawOffset) {
+    const g = new THREE.Group();
+    const hullMat = new THREE.MeshLambertMaterial({ color: 0x2a3a4a });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x1a2530 });
+    const light = new THREE.MeshLambertMaterial({ color: 0x5a6878 });
+    // Hull — long thin
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(4.5, 2.5, 22), hullMat);
+    hull.position.y = 1.2; g.add(hull);
+    // Bow taper (smaller box up front)
+    const bow = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 3), hullMat);
+    bow.position.set(0, 1.2, -12); g.add(bow);
+    // Deck superstructure
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.6, 8), light);
+    deck.position.set(0, 3.2, 0); g.add(deck);
+    // Bridge tower
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.8, 2.5), light);
+    bridge.position.set(0, 5.0, -1.5); g.add(bridge);
+    // Funnels
+    const funMat = new THREE.MeshLambertMaterial({ color: 0x3a3a3a });
+    const f1 = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 2.0, 12), funMat);
+    f1.position.set(0, 5.0, 1.5); g.add(f1);
+    const f2 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 1.8, 12), funMat);
+    f2.position.set(0, 4.9, 4.0); g.add(f2);
+    // Mast
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 8, 6), dark);
+    mast.position.set(0, 8, -2); g.add(mast);
+    // Forward gun turret
+    const turret = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.8, 1.8), dark);
+    turret.position.set(0, 3.0, -7); g.add(turret);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 3.0, 8), dark);
+    barrel.rotation.x = Math.PI/2; barrel.position.set(0, 3.2, -8.8);
+    g.add(barrel);
+    // Aft gun
+    const turret2 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 1.6), dark);
+    turret2.position.set(0, 3.0, 9); g.add(turret2);
+    g.position.set(x, 0.5, z);
+    g.rotation.y = (yawOffset || 0);
+    this.scene.add(g);
+    // Decorative only (no collision — too far away)
+  }
+
+  makeJeep(x, z) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: 0x4a6741 });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x1a1008 });
+    // Body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.8, 3.2), mat);
+    body.position.y = 0.7; g.add(body);
+    // Hood
+    const hood = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 1.0), mat);
+    hood.position.set(0, 0.9, 1.4); g.add(hood);
+    // Windshield (folded down)
+    const wind = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.6), dark);
+    wind.position.set(0, 1.15, 0.7); g.add(wind);
+    // Wheels
+    const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.25, 10);
+    [[-0.8,-1.0],[ 0.8,-1.0],[-0.8, 1.0],[ 0.8, 1.0]].forEach(([wx, wz])=>{
+      const w = new THREE.Mesh(wheelGeo, dark);
+      w.rotation.z = Math.PI/2; w.position.set(wx, 0.4, wz); g.add(w);
+    });
+    // White star on hood
+    const star = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+    star.position.set(0, 1.21, 1.4); star.rotation.x = -Math.PI/2; g.add(star);
+    g.position.set(x, 0, z);
+    g.rotation.y = rand(-0.5, 0.5);
+    this.scene.add(g);
+    this.addObstacle(g, x, z, 1.2);
+  }
+
   makeAllyMesh(x, y, z) {
     const g = new THREE.Group();
     // legs
