@@ -5,7 +5,7 @@
    facts between waves + end-of-level quiz.
    ============================================================ */
 
-const BUILD_VERSION = 'v7 · cinematic';
+const BUILD_VERSION = 'v8 · redeploy';
 
 // AI-generated photo backdrops (Pollinations.ai — loaded by user's browser).
 // One unique scene per level, fixed seed so the image is cached after first generate.
