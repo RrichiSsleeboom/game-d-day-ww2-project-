@@ -2756,3 +2756,93 @@ html, body { height: 100%; overscroll-behavior: none; }
   font-size: 0.55rem;
   text-shadow: 0 0 4px #ffb347;
 }
+
+/* ============================================================
+   D-Day v9 — dual-stick mobile controls
+   ============================================================ */
+
+.dday-play #dday-canvas { cursor: none; background: #0a0c08; }
+
+.dday-mobile-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  display: none;
+}
+@media (pointer: coarse) {
+  .dday-mobile-controls { display: block; }
+}
+
+.dday-mobile-stick {
+  position: absolute;
+  bottom: 6rem;
+  left: 1.25rem;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  pointer-events: auto;
+  touch-action: none;
+}
+.dday-mobile-stick-right {
+  left: auto;
+  right: 1.25rem;
+}
+.dday-mobile-knob {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 56px; height: 56px;
+  margin: -28px 0 0 -28px;
+  background: rgba(212, 161, 58, 0.75);
+  border: 3px solid #1a1008;
+  border-radius: 50%;
+  transition: transform 0.04s linear;
+}
+.dday-mobile-stick-right .dday-mobile-knob {
+  background: rgba(232, 100, 80, 0.75);
+}
+
+.dday-mobile-fire {
+  position: absolute;
+  top: -1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(232, 80, 60, 0.85);
+  color: #fff;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  border: 2px solid #1a1008;
+  font-size: 0.75rem;
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #1a1008;
+}
+.dday-mobile-fire:active { transform: translate(-50%, 2px); box-shadow: 0 1px 0 #1a1008; }
+
+/* Touch helpers in v9 layout — hide v6-style ones */
+.dday-touch-ability {
+  bottom: 0.75rem;
+  right: 9.5rem;
+  width: 70px;
+  height: 70px;
+}
+.dday-touch-reload {
+  bottom: 0.75rem;
+  right: 18.5rem;
+  width: 56px;
+  height: 56px;
+  background: rgba(80, 90, 60, 0.65);
+}
+@media (pointer: fine) {
+  .dday-touch-ability, .dday-touch-reload { display: none; }
+}
+@media (max-width: 480px) {
+  .dday-mobile-stick { width: 110px; height: 110px; }
+  .dday-mobile-knob { width: 48px; height: 48px; margin: -24px 0 0 -24px; }
+  .dday-touch-ability { right: 8rem; }
+  .dday-touch-reload  { right: 15rem; bottom: 1.5rem; }
+}
