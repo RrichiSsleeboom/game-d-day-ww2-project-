@@ -6,6 +6,9 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
+const BUILD_VERSION = 'v5 · a161afa+';
+console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;font-weight:bold');
+
 (function () {
 'use strict';
 
@@ -317,6 +320,7 @@ function renderTitle() {
           <kbd>WASD</kbd> or <kbd>↑←↓→</kbd> to move · auto-aim · <kbd>Q</kbd> or <kbd>Space</kbd> for special<br>
           Touch screen? You'll get a joystick.
         </div>
+        <div class="dday-build">build ${BUILD_VERSION}</div>
       </div>
     </section>
   `;

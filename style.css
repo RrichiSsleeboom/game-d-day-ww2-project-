@@ -2462,3 +2462,14 @@ html, body { height: 100%; overscroll-behavior: none; }
   .dday-result-stats > div { padding: 0.5rem 0.6rem; min-width: 70px; }
   .dday-result-stats b { font-size: 1.1rem; }
 }
+
+.dday-build {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  color: #5a4a30;
+  font-family: monospace;
+}
