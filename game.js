@@ -6,7 +6,106 @@
    Touch: dual joysticks + fire button.
    ============================================================ */
 
-const BUILD_VERSION = 'v11 · armor';
+const BUILD_VERSION = 'v12 · battlefield';
+
+// ============================================================
+// PER-ROLE WEAPON SVGs  (overlay at the bottom of the screen)
+// ============================================================
+
+// Each is a 360x220 SVG showing the weapon in first-person hold.
+// Distinct silhouettes so each role feels different.
+function gunSVG(svgInner) {
+  return 'url("data:image/svg+xml;utf8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 220">${svgInner}</svg>`
+  ) + '")';
+}
+
+const GUN_SVGS = {
+  rifleman: gunSVG(`
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4a5a38"/><stop offset="1" stop-color="#2a3420"/></linearGradient></defs>
+    <path d="M50,220 L60,150 Q90,135 150,130 L210,140 L210,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <path d="M250,220 L240,140 Q280,130 360,140 L360,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="170" cy="140" rx="30" ry="20" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="244" cy="142" rx="28" ry="18" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <rect x="200" y="135" width="40" height="14" fill="#3a2818" stroke="#000"/>
+    <rect x="170" y="135" width="40" height="12" fill="#6a4a28" stroke="#000"/>
+    <rect x="120" y="138" width="60" height="8" fill="#4a3420" stroke="#000"/>
+    <rect x="100" y="140" width="22" height="6" fill="#3a2418" stroke="#000"/>
+    <rect x="240" y="124" width="80" height="6" fill="#2a2218" stroke="#000"/>
+    <rect x="318" y="124" width="6" height="6" fill="#1a1008"/>
+    <rect x="218" y="118" width="14" height="14" fill="#3a2818" stroke="#000"/>
+  `),
+  paratrooper: gunSVG(`
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#6e7a3a"/><stop offset="1" stop-color="#3a4220"/></linearGradient></defs>
+    <path d="M60,220 L60,160 Q100,150 160,148 L210,150 L210,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <path d="M250,220 L250,160 Q300,150 360,158 L360,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="178" cy="152" rx="32" ry="20" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="248" cy="155" rx="28" ry="18" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <rect x="200" y="135" width="60" height="22" fill="#2a2018" stroke="#000"/>
+    <rect x="210" y="155" width="32" height="40" fill="#3a3020" stroke="#000"/>
+    <rect x="118" y="138" width="80" height="8" fill="#2a2018" stroke="#000"/>
+    <rect x="105" y="136" width="14" height="12" fill="#3a2818" stroke="#000"/>
+    <rect x="125" y="135" width="6" height="13" fill="#1a1008"/>
+    <rect x="145" y="135" width="6" height="13" fill="#1a1008"/>
+    <rect x="165" y="135" width="6" height="13" fill="#1a1008"/>
+    <rect x="248" y="115" width="6" height="18" fill="#2a2018"/>
+  `),
+  medic: gunSVG(`
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#8a4040"/><stop offset="1" stop-color="#4a1818"/></linearGradient></defs>
+    <path d="M80,220 L80,170 Q120,158 170,160 L210,170 L210,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <path d="M240,220 L240,170 Q290,160 350,168 L350,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="190" cy="160" rx="28" ry="18" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="245" cy="162" rx="26" ry="16" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <rect x="200" y="150" width="48" height="16" fill="#3a2818" stroke="#000"/>
+    <rect x="205" y="166" width="14" height="20" fill="#2a1a08" stroke="#000"/>
+    <rect x="246" y="148" width="24" height="6" fill="#2a2018" stroke="#000"/>
+    <rect x="248" y="138" width="6" height="12" fill="#1a1008"/>
+    <rect x="100" y="170" width="14" height="20" fill="#c83030" stroke="#000"/>
+    <rect x="104" y="174" width="6" height="12" fill="#fff"/>
+    <rect x="98" y="178" width="18" height="4" fill="#fff"/>
+  `),
+  ranger: gunSVG(`
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4a5a78"/><stop offset="1" stop-color="#2a3450"/></linearGradient></defs>
+    <path d="M60,220 L60,158 Q100,148 160,146 L210,150 L210,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <path d="M250,220 L250,158 Q300,148 360,156 L360,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="178" cy="150" rx="30" ry="18" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="246" cy="152" rx="26" ry="16" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <rect x="195" y="138" width="55" height="14" fill="#3a2818" stroke="#000"/>
+    <rect x="200" y="152" width="18" height="26" fill="#3a2818" stroke="#000"/>
+    <rect x="135" y="140" width="60" height="8" fill="#6a4a28" stroke="#000"/>
+    <rect x="248" y="124" width="60" height="6" fill="#2a2218" stroke="#000"/>
+    <ellipse cx="320" cy="180" rx="14" ry="14" fill="#3a4528" stroke="#000"/>
+    <ellipse cx="320" cy="180" rx="8" ry="8" fill="#5a6840"/>
+  `),
+  sniper: gunSVG(`
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#3a5a3a"/><stop offset="1" stop-color="#1a3020"/></linearGradient></defs>
+    <path d="M40,220 L50,150 Q90,140 150,138 L210,144 L210,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <path d="M250,220 L240,144 Q280,138 360,148 L360,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="170" cy="148" rx="30" ry="18" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="244" cy="150" rx="26" ry="16" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <rect x="195" y="135" width="60" height="14" fill="#5a4028" stroke="#000"/>
+    <rect x="115" y="140" width="80" height="6" fill="#6a4a28" stroke="#000"/>
+    <rect x="250" y="125" width="100" height="6" fill="#1a1008" stroke="#000"/>
+    <rect x="200" y="118" width="55" height="14" fill="#1a1008" stroke="#000"/>
+    <ellipse cx="205" cy="125" rx="6" ry="6" fill="#3a3a3a" stroke="#000"/>
+    <ellipse cx="248" cy="125" rx="6" ry="6" fill="#3a3a3a" stroke="#000"/>
+    <rect x="218" y="148" width="14" height="14" fill="#3a2818" stroke="#000"/>
+  `),
+  heavy: gunSVG(`
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#6a5028"/><stop offset="1" stop-color="#3a2810"/></linearGradient></defs>
+    <path d="M50,220 L55,155 Q95,142 150,140 L210,148 L210,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <path d="M250,220 L245,150 Q295,140 360,148 L360,220 Z" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="172" cy="148" rx="32" ry="20" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <ellipse cx="246" cy="152" rx="28" ry="18" fill="#5a4028" stroke="#000" stroke-width="1.5"/>
+    <rect x="190" y="132" width="70" height="20" fill="#3a2818" stroke="#000"/>
+    <rect x="200" y="152" width="42" height="32" fill="#2a1a08" stroke="#000"/>
+    <rect x="116" y="138" width="80" height="8" fill="#6a4a28" stroke="#000"/>
+    <rect x="248" y="120" width="100" height="6" fill="#2a2218" stroke="#000"/>
+    <line x1="160" y1="148" x2="142" y2="200" stroke="#1a1008" stroke-width="3"/>
+    <line x1="180" y1="148" x2="200" y2="200" stroke="#1a1008" stroke-width="3"/>
+  `)
+};
+
 console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;font-weight:bold');
 
 (function () {
@@ -527,6 +626,18 @@ class FpsGame {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
+    // Per-role weapon overlay
+    const gunEl = document.getElementById('dday-fps-gun');
+    if (gunEl && GUN_SVGS[role.id]) gunEl.style.backgroundImage = GUN_SVGS[role.id];
+
+    // Sky things: planes, paratroopers, bombs
+    this.planes = [];
+    this.paratroopers = [];
+    this.bombs = [];
+    this.spawnPlane();
+    this.nextBomb = rand(3, 7);
+    this.nextPlane = rand(8, 14);
+
     this.toast('Off the boat — find cover and push up the beach', 2400);
     this.drawGun();
   }
@@ -912,6 +1023,224 @@ class FpsGame {
     g.rotation.y = rand(-0.5, 0.5);
     this.scene.add(g);
     this.addObstacle(g, x, z, 1.2);
+  }
+
+  // ---- Sky: planes, paratroopers, bombs ----
+
+  spawnPlane() {
+    const g = new THREE.Group();
+    const oliveMat = new THREE.MeshLambertMaterial({ color: 0x4a5a38 });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x1a1008 });
+    // Fuselage
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.4, 7, 8), oliveMat);
+    body.rotation.z = Math.PI/2; g.add(body);
+    // Wings
+    const wings = new THREE.Mesh(new THREE.BoxGeometry(12, 0.2, 1.5), oliveMat);
+    wings.position.y = 0; g.add(wings);
+    // Tail
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.15, 0.8), oliveMat);
+    tail.position.x = -3.2; g.add(tail);
+    // Vertical fin
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.1, 0.15), oliveMat);
+    fin.position.set(-3.2, 0.6, 0); g.add(fin);
+    // Cockpit
+    const cock = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.6, 0.8), dark);
+    cock.position.set(0.6, 0.4, 0); g.add(cock);
+    // Engine nose
+    const eng = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.5, 10), dark);
+    eng.rotation.z = Math.PI/2; eng.position.x = 3.5; g.add(eng);
+    // Star marking on wing (Allies)
+    const star = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+    star.rotation.x = -Math.PI/2; star.position.set(-2.5, 0.15, 0); g.add(star);
+    // Start far side, fly across, with some altitude
+    const fromLeft = Math.random() < 0.5;
+    const z = rand(-30, 30);
+    const y = rand(28, 42);
+    const x0 = fromLeft ? -160 : 160;
+    g.position.set(x0, y, z);
+    g.rotation.y = fromLeft ? -Math.PI/2 : Math.PI/2;
+    this.scene.add(g);
+    const plane = {
+      mesh: g,
+      vx: (fromLeft ? 1 : -1) * rand(14, 22),
+      dropTimer: rand(0.8, 2.0),
+      dropsLeft: Math.random() < 0.7 ? Math.floor(rand(2, 5)) : 0
+    };
+    this.planes.push(plane);
+  }
+
+  dropParatrooper(px, py, pz) {
+    const g = new THREE.Group();
+    const white = new THREE.MeshLambertMaterial({ color: 0xeae0c8 });
+    const olive = new THREE.MeshLambertMaterial({ color: 0x4a5a38 });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x1a1008 });
+    // Parachute (hemisphere)
+    const chute = new THREE.Mesh(new THREE.SphereGeometry(1.8, 14, 8, 0, Math.PI*2, 0, Math.PI/2), white);
+    chute.position.y = 2.6;
+    g.add(chute);
+    // Rim shadow
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.78, 0.05, 6, 14), dark);
+    rim.position.y = 2.6; rim.rotation.x = Math.PI/2;
+    g.add(rim);
+    // Rope lines (4 simple cylinders)
+    const ropeMat = new THREE.MeshLambertMaterial({ color: 0x2a2018 });
+    [[-1.4,2.2],[1.4,2.2],[-1.0,1.8],[1.0,1.8]].forEach(([sx, sy])=>{
+      const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.0, 4), ropeMat);
+      rope.position.set(sx/2, sy/2 + 0.5, 0);
+      rope.rotation.z = Math.atan2(0 - sx, 0.4);
+      g.add(rope);
+    });
+    // Body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.1, 0.4), olive);
+    body.position.y = 0.4; g.add(body);
+    // Head
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), new THREE.MeshLambertMaterial({ color: 0xc89878 }));
+    head.position.y = 1.15; g.add(head);
+    // Helmet
+    const helm = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 6, 0, Math.PI*2, 0, Math.PI/2), olive);
+    helm.position.y = 1.32; helm.scale.y = 0.55; g.add(helm);
+    g.position.set(px, py, pz);
+    this.scene.add(g);
+    this.paratroopers.push({ mesh: g, vy: -2.5, drift: rand(-0.3, 0.3) });
+  }
+
+  spawnBomb() {
+    // Drop a bomb on the enemy side
+    const x = rand(-50, 50);
+    const z = rand(-50, -10);
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 1.1, 8), new THREE.MeshLambertMaterial({ color: 0x2a2218 }));
+    body.rotation.x = Math.PI/2; g.add(body);
+    // Nose
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.4, 8), new THREE.MeshLambertMaterial({ color: 0x3a2818 }));
+    nose.rotation.x = Math.PI/2; nose.position.z = -0.7;
+    g.add(nose);
+    // Tail fins
+    const finMat = new THREE.MeshLambertMaterial({ color: 0x3a2818 });
+    [0, Math.PI/2].forEach(a => {
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.04, 0.4), finMat);
+      fin.position.z = 0.55; fin.rotation.z = a;
+      g.add(fin);
+    });
+    g.position.set(x, 50, z);
+    this.scene.add(g);
+    this.bombs.push({ mesh: g, vy: -28, x, z });
+  }
+
+  updateSky(dt) {
+    // Planes
+    for (const p of this.planes) {
+      p.mesh.position.x += p.vx * dt;
+      p.dropTimer -= dt;
+      if (p.dropsLeft > 0 && p.dropTimer <= 0) {
+        // Drop a paratrooper from current plane position (only behind enemy line — Z < -40)
+        if (p.mesh.position.z < -10 || rand(0, 1) < 0.5) {
+          // drop somewhere behind enemy line
+          const dx = p.mesh.position.x + rand(-3, 3);
+          const dy = p.mesh.position.y - 1;
+          const dz = clamp(-60 + rand(-15, 5), -70, -30);
+          this.dropParatrooper(dx, dy, dz);
+        }
+        p.dropsLeft--;
+        p.dropTimer = rand(0.6, 1.4);
+      }
+    }
+    this.planes = this.planes.filter(p => {
+      if (Math.abs(p.mesh.position.x) > 200) {
+        this.scene.remove(p.mesh);
+        return false;
+      }
+      return true;
+    });
+    // New plane sometimes
+    this.nextPlane -= dt;
+    if (this.nextPlane <= 0) {
+      this.spawnPlane();
+      this.nextPlane = rand(10, 18);
+    }
+
+    // Paratroopers descend + drift
+    for (const p of this.paratroopers) {
+      p.mesh.position.y += p.vy * dt;
+      p.mesh.position.x += p.drift * dt;
+      if (p.mesh.position.y <= 0.5) {
+        // Landed — fade out then remove
+        p.landed = (p.landed || 0) + dt;
+        if (p.landed > 2.5) p.dead = true;
+      }
+    }
+    this.paratroopers = this.paratroopers.filter(p => {
+      if (p.dead) { this.scene.remove(p.mesh); return false; }
+      return true;
+    });
+
+    // Bombs fall + explode on ground
+    for (const b of this.bombs) {
+      b.mesh.position.y += b.vy * dt;
+      b.vy -= 16 * dt;
+      if (b.mesh.position.y <= 0.2 && !b.exploded) {
+        b.exploded = true;
+        // Visual explosion (sphere flash + smoke)
+        const flash = new THREE.Mesh(new THREE.SphereGeometry(3.5, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.85 }));
+        flash.position.set(b.x, 1.5, b.z);
+        this.scene.add(flash);
+        b.flash = flash; b.flashLife = 0.4;
+        // Smoke pillar
+        const smoke = new THREE.Mesh(new THREE.SphereGeometry(2.2, 12, 8), new THREE.MeshLambertMaterial({ color: 0x2a2218, transparent: true, opacity: 0.75 }));
+        smoke.position.set(b.x, 4, b.z);
+        this.scene.add(smoke);
+        b.smoke = smoke; b.smokeLife = 1.6;
+        // Damage enemies in radius
+        for (const e of this.enemies) {
+          if (e.dead) continue;
+          const dx = e.x - b.x, dz = e.z - b.z;
+          if (dx*dx + dz*dz < 25) this.hitEnemy(e, 60);
+        }
+        // Camera shake if close
+        const px = this.camera.position.x, pz = this.camera.position.z;
+        const dd = Math.hypot(px - b.x, pz - b.z);
+        if (dd < 25) this.shake = Math.max(this.shake, 0.4 * (1 - dd/25));
+        // Hide bomb mesh
+        this.scene.remove(b.mesh);
+      }
+      if (b.exploded) {
+        b.flashLife -= dt;
+        b.smokeLife -= dt;
+        if (b.flash) {
+          b.flash.scale.setScalar(1 + (1 - b.flashLife/0.4) * 1.8);
+          b.flash.material.opacity = Math.max(0, b.flashLife / 0.4 * 0.85);
+        }
+        if (b.smoke) {
+          b.smoke.position.y += dt * 0.6;
+          b.smoke.material.opacity = Math.max(0, b.smokeLife / 1.6 * 0.75);
+        }
+      }
+    }
+    this.bombs = this.bombs.filter(b => {
+      if (b.exploded && b.smokeLife <= 0) {
+        if (b.flash) this.scene.remove(b.flash);
+        if (b.smoke) this.scene.remove(b.smoke);
+        return false;
+      }
+      return true;
+    });
+    this.nextBomb -= dt;
+    if (this.nextBomb <= 0) {
+      this.spawnBomb();
+      this.nextBomb = rand(4, 9);
+    }
+
+    // Wobble wreck smoke
+    if (this._wrecks) {
+      for (const w of this._wrecks) {
+        if (!w.userData.smoke) continue;
+        const t = this.time + w.userData.t0;
+        w.userData.smoke.forEach((s, i) => {
+          s.position.x = Math.sin(t * 0.8 + i) * 0.25;
+          s.position.y = 3.2 + i * 1.1 + Math.sin(t + i) * 0.1;
+        });
+      }
+    }
   }
 
   makeAllyMesh(x, y, z) {
@@ -1327,6 +1656,9 @@ class FpsGame {
       if (t.life <= 0) { this.scene.remove(t.line); return false; }
       return true;
     });
+
+    // Sky activity (planes, paratroopers, bombs)
+    this.updateSky(dt);
 
     // Grenades
     for (const g of this.grenades) this.updateGrenade(g, dt);
