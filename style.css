@@ -2718,3 +2718,41 @@ html, body { height: 100%; overscroll-behavior: none; }
   .dday-hud-enemy { top: 5rem; font-size: 0.68rem; }
   .dday-hud-enemy b { font-size: 0.75rem; }
 }
+
+/* Compass strip inside the wave panel */
+.dday-hud-compass {
+  margin-top: 0.4rem;
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid rgba(212, 161, 58, 0.25);
+  padding-top: 0.3rem;
+}
+.dday-hud-compass-strip {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  color: #c0b090;
+  transition: transform 0.08s linear;
+  padding: 0 0.3rem;
+  mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent);
+}
+.dday-hud-compass-strip .north { color: #d4a13a; font-weight: 900; text-shadow: 0 0 4px rgba(212, 161, 58, 0.6); }
+.dday-hud-compass-heading {
+  text-align: center;
+  font-size: 0.6rem;
+  color: #d4a13a;
+  font-family: monospace;
+  letter-spacing: 0.1em;
+  margin-top: 0.1rem;
+}
+.dday-hud-compass::after {
+  content: '▼';
+  position: absolute;
+  left: 50%;
+  top: 0.3rem;
+  transform: translateX(-50%);
+  color: #ffb347;
+  font-size: 0.55rem;
+  text-shadow: 0 0 4px #ffb347;
+}

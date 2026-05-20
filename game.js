@@ -5,7 +5,37 @@
    facts between waves + end-of-level quiz.
    ============================================================ */
 
-const BUILD_VERSION = 'v6 · FPS';
+const BUILD_VERSION = 'v7 · cinematic';
+
+// AI-generated photo backdrops (Pollinations.ai — loaded by user's browser).
+// One unique scene per level, fixed seed so the image is cached after first generate.
+const BACKDROPS = {
+  omaha: 'hyperrealistic first-person POV view of D-Day Omaha Beach June 6 1944, soldier muddy gloved hands holding M1 Garand rifle, vaulting burning Czech hedgehog steel obstacle, US soldiers advancing through surf, massive explosions, thick black smoke, water splashing, cinematic lighting overcast sky, Unreal Engine 5, photorealistic 8K sharp detail',
+  bocage:'hyperrealistic first-person POV Normandy bocage hedgerow combat 1944, tall thick hedges either side, US soldiers crouching advancing, smoke between fields, distant gunfire flashes, sunlight through trees, cinematic, Unreal Engine 5, photorealistic 8K',
+  pointe:'hyperrealistic first-person POV cliff top Pointe du Hoc D-Day 1944, US Army Rangers in foreground with grappling ropes, bombed crater terrain, distant German bunkers, smoke pillars, gray overcast sky, cinematic lighting, Unreal Engine 5, photorealistic 8K sharp detail',
+  town:  'hyperrealistic first-person POV view of Sainte-Mere-Eglise France 1944 paratrooper night drop, dark French village square, church steeple with hanging parachute, burning buildings orange glow, smoke, US paratroopers fighting, cinematic dramatic lighting, Unreal Engine 5, photorealistic 8K'
+};
+const BACKDROP_SEED = 19440606;
+
+function backdropURL(levelId) {
+  const p = BACKDROPS[levelId] || BACKDROPS.omaha;
+  return 'https://image.pollinations.ai/prompt/' + encodeURIComponent(p) +
+         '?width=1600&height=900&nologo=true&enhance=true&seed=' + BACKDROP_SEED;
+}
+
+// 10 squad roles visible alongside the player.
+const ALLY_ROLES = [
+  { id: 'medic',     name: 'Medic',       icon: '⚕', color: '#c83030', extra: 'cross' },
+  { id: 'officer',   name: 'Officer',     icon: '★', color: '#4a5a78', extra: 'cap' },
+  { id: 'radio',     name: 'Radio Op',    icon: '⦿', color: '#5a5028', extra: 'antenna' },
+  { id: 'sapper',    name: 'Sapper',      icon: '⚒', color: '#6a5a3a', extra: 'tube' },
+  { id: 'bar',       name: 'BAR Gunner',  icon: '⚙', color: '#5a4828', extra: 'bipod' },
+  { id: 'scout',     name: 'Scout',       icon: '➤', color: '#4a6a48', extra: '' },
+  { id: 'wounded',   name: 'Wounded',     icon: '✚', color: '#7a4040', extra: 'low' },
+  { id: 'flag',      name: 'Flag Bearer', icon: '⚑', color: '#4a6741', extra: 'flag' },
+  { id: 'engineer',  name: 'Engineer',    icon: '⚡', color: '#5a4830', extra: 'pack' },
+  { id: 'rifleman',  name: 'Rifleman',    icon: '🎯', color: '#4a6741', extra: '' }
+];
 console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;font-weight:bold');
 
 (function () {
@@ -470,6 +500,12 @@ function startGameplay() {
           <div class="dday-hud-mid">
             <div class="dday-hud-label">Wave</div>
             <div class="dday-hud-wave"><b id="hud-wave">1</b> / ${l.waves}</div>
+            <div class="dday-hud-compass">
+              <div class="dday-hud-compass-strip" id="hud-compass">
+                <span>W</span><span>NW</span><span class="north">N</span><span>NE</span><span>E</span>
+              </div>
+              <div class="dday-hud-compass-heading"><span id="hud-heading">315°</span></div>
+            </div>
           </div>
           <div class="dday-hud-score">
             <div class="dday-hud-label">Score</div>
@@ -610,6 +646,17 @@ class Game {
     this.parallax = this.makeParallax();
     this.allies = this.makeAllies();
 
+    // Photorealistic AI backdrop (loaded in browser)
+    this.backdrop = new Image();
+    this.backdropReady = false;
+    this.backdrop.onload = () => { this.backdropReady = true; };
+    this.backdrop.onerror = () => { this.backdropReady = false; };
+    this.backdrop.src = backdropURL(level.id);
+
+    // Foreground burning Czech hedgehog (only on beach)
+    this.fgHedgehog = level.terrain === 'beach';
+    this.distantFlashTimer = 0;
+
     this.paused = false;
     this.over = false;
     this.time = 0;
@@ -654,15 +701,18 @@ class Game {
   }
 
   makeAllies() {
+    // Guarantee one of each of the 10 squad roles is on screen.
     const arr = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < ALLY_ROLES.length; i++) {
+      const role = ALLY_ROLES[i];
       arr.push({
-        x: rand(-1.4, 1.4),
-        z: rand(20, 45),
-        type: 'ally',
+        x: rand(-1.6, 1.6),
+        z: rand(22, 55),
+        role: role,
         anim: rand(0, 6),
-        speed: rand(1.5, 3.0), // advances over time (z decreases)
-        alive: true
+        speed: rand(1.2, 2.6),
+        alive: true,
+        labelTimer: rand(0, 4) // staggered label appearance
       });
     }
     return arr;
@@ -1072,6 +1122,21 @@ class Game {
       ch.style.top = this.aimY + 'px';
       ch.classList.toggle('over-enemy', !!hovered);
     }
+
+    // Compass — shifts subtly with lateral lean and aim X
+    const compass = document.getElementById('hud-compass');
+    if (compass) {
+      const aimOff = (this.aimX / this.w - 0.5) * 30;
+      const leanOff = this.lateral * 12;
+      compass.style.transform = `translateX(${-(aimOff + leanOff)}px)`;
+    }
+    const heading = document.getElementById('hud-heading');
+    if (heading) {
+      const base = 315; // facing NW (typical D-Day inland)
+      const adj = (this.aimX / this.w - 0.5) * 60 + this.lateral * 20;
+      const deg = Math.round((base + adj + 360) % 360);
+      heading.textContent = deg.toString().padStart(3, '0') + '°';
+    }
   }
 
   showIntelFact() {
@@ -1258,6 +1323,7 @@ class Game {
 
     this.drawSky(ctx);
     this.drawGround(ctx);
+    this.drawDistantFlashes(ctx);
     this.drawParallax(ctx);
     this.drawSmokePillars(ctx);
     this.drawAllies(ctx);
@@ -1265,6 +1331,7 @@ class Game {
     this.drawGrenades(ctx);
     this.drawParticles(ctx);
     this.drawTracers(ctx);
+    this.drawForegroundProps(ctx);
     this.drawForeground(ctx);
     this.drawGun(ctx);
     this.drawFloats(ctx);
@@ -1274,16 +1341,33 @@ class Game {
   }
 
   drawSky(ctx) {
-    const p = this.level.palette;
-    const horizon = this.h * 0.5;
-    const grad = ctx.createLinearGradient(0, 0, 0, horizon);
-    grad.addColorStop(0, p.sky);
-    grad.addColorStop(1, p.sky2);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, this.w, horizon);
+    // Photo backdrop covers the whole frame; gradient sky shows through where image is transparent.
+    if (this.backdropReady && this.backdrop && this.backdrop.naturalWidth > 0) {
+      // Subtle parallax based on lateral lean
+      const off = -this.lateral * 22;
+      const scale = 1.06;
+      const dw = this.w * scale;
+      const dh = this.h * scale;
+      ctx.drawImage(this.backdrop, off - dw * 0.03, -dh * 0.03, dw, dh);
+      // Light color grading overlay to match the level palette
+      const p = this.level.palette;
+      ctx.fillStyle = `rgba(${parseInt(p.sky.slice(1, 3), 16)},${parseInt(p.sky.slice(3, 5), 16)},${parseInt(p.sky.slice(5, 7), 16)},0.12)`;
+      ctx.fillRect(0, 0, this.w, this.h);
+    } else {
+      const p = this.level.palette;
+      const horizon = this.h * 0.5;
+      const grad = ctx.createLinearGradient(0, 0, 0, horizon);
+      grad.addColorStop(0, p.sky);
+      grad.addColorStop(1, p.sky2);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, this.w, horizon);
+    }
   }
 
   drawGround(ctx) {
+    if (this.backdropReady && this.backdrop && this.backdrop.naturalWidth > 0) {
+      return; // already covered by photo backdrop
+    }
     const p = this.level.palette;
     const horizon = this.h * 0.5;
     const grad = ctx.createLinearGradient(0, horizon, 0, this.h);
@@ -1291,10 +1375,8 @@ class Game {
     grad.addColorStop(1, p.ground2);
     ctx.fillStyle = grad;
     ctx.fillRect(0, horizon, this.w, this.h - horizon);
-    // Horizon line
     ctx.fillStyle = p.horizon;
     ctx.fillRect(0, horizon, this.w, 3);
-    // Ground perspective lines for sense of depth
     ctx.strokeStyle = 'rgba(0,0,0,0.12)';
     ctx.lineWidth = 1;
     for (let i = -8; i <= 8; i++) {
@@ -1302,6 +1384,80 @@ class Game {
       ctx.moveTo(this.w / 2 + i * 30, horizon);
       ctx.lineTo(this.w / 2 + i * 200, this.h);
       ctx.stroke();
+    }
+  }
+
+  drawForegroundProps(ctx) {
+    // Burning Czech hedgehog at lower-left foreground (beach only)
+    if (!this.fgHedgehog) return;
+    const sw = Math.min(this.w, 1000);
+    const cx = this.w * 0.18 + this.lateral * 12;
+    const cy = this.h * 0.86;
+    const sc = sw * 0.0009;
+    ctx.save();
+    ctx.translate(cx, cy);
+    // Flame glow base
+    const flameWob = Math.sin(this.time * 12) * 4;
+    const flameSz = 60 * sc + flameWob;
+    const flameGrad = ctx.createRadialGradient(0, 0, 4, 0, 0, flameSz * 2.5);
+    flameGrad.addColorStop(0, 'rgba(255, 180, 80, 0.85)');
+    flameGrad.addColorStop(0.4, 'rgba(255, 100, 30, 0.45)');
+    flameGrad.addColorStop(1, 'rgba(40, 10, 0, 0)');
+    ctx.fillStyle = flameGrad;
+    ctx.beginPath(); ctx.ellipse(0, 0, flameSz * 2, flameSz * 1.4, 0, 0, Math.PI * 2); ctx.fill();
+    // Hedgehog beams
+    const sz = 80 * sc;
+    ctx.strokeStyle = '#1a0e06';
+    ctx.lineWidth = 6 * sc + 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-sz, sz * 0.6); ctx.lineTo(sz * 1.1, -sz * 1.1);
+    ctx.moveTo(sz * 1.1, sz * 0.6); ctx.lineTo(-sz, -sz * 1.1);
+    ctx.moveTo(0, -sz * 1.5); ctx.lineTo(0, sz * 0.7);
+    ctx.stroke();
+    // Flicker flames on top
+    ctx.fillStyle = 'rgba(255, 140, 40, ' + (0.6 + Math.sin(this.time * 18) * 0.3) + ')';
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2 + this.time * 3;
+      const fr = flameSz * 0.7 + Math.sin(this.time * 10 + i) * 6;
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(a) * 12, -10 + Math.sin(a) * 8, fr * 0.3, fr * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Foreground water splashes (animated)
+    if (this.level.terrain === 'beach') {
+      ctx.save();
+      for (let i = 0; i < 8; i++) {
+        const t = (this.time * 1.2 + i * 0.7) % 2;
+        const x = (i / 8) * this.w + Math.sin(i + this.time) * 30;
+        const y = this.h * 0.72 - t * 80;
+        const a = clamp(1 - t / 2, 0, 1);
+        ctx.fillStyle = `rgba(220, 230, 240, ${a * 0.7})`;
+        ctx.beginPath(); ctx.ellipse(x, y, 4 + t * 2, 4 + t * 2, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  drawDistantFlashes(ctx) {
+    // Occasional artillery flash on the horizon
+    this.distantFlashTimer -= 0.016;
+    if (this.distantFlashTimer <= 0) {
+      this.distantFlashTimer = rand(1.6, 4.2);
+      this._flashX = rand(0.15, 0.85) * this.w;
+      this._flashY = this.h * 0.48;
+      this._flashAge = 0.4;
+    }
+    if (this._flashAge > 0) {
+      this._flashAge -= 0.02;
+      const a = clamp(this._flashAge / 0.4, 0, 1);
+      const g = ctx.createRadialGradient(this._flashX, this._flashY, 4, this._flashX, this._flashY, 120);
+      g.addColorStop(0, `rgba(255, 220, 150, ${a * 0.85})`);
+      g.addColorStop(1, 'rgba(255, 100, 30, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(this._flashX - 130, this._flashY - 130, 260, 260);
     }
   }
 
@@ -1383,7 +1539,69 @@ class Game {
     for (const a of sorted) {
       const p = this.projectAlly(a);
       if (!p) continue;
-      this.drawSoldier(ctx, p.cx, p.cy, p.sizePx * 0.6, '#4a6741', '#88c46a', 'helmet', false, a.anim);
+      const role = a.role;
+      const sz = p.sizePx * 0.6;
+      // Officer wears a cap, not helmet
+      const helmet = role.id === 'officer' ? 'cap' : 'helmet';
+      this.drawSoldier(ctx, p.cx, p.cy, sz, role.color, '#88c46a', helmet, false, a.anim);
+      // Role-specific extras
+      ctx.save();
+      ctx.translate(p.cx, p.cy);
+      if (role.extra === 'cross') {
+        // Red cross on medic
+        ctx.fillStyle = '#c83030';
+        ctx.fillRect(-sz * 0.08, -sz * 0.85, sz * 0.16, sz * 0.05);
+        ctx.fillRect(-sz * 0.03, -sz * 0.92, sz * 0.06, sz * 0.18);
+      } else if (role.extra === 'antenna') {
+        // Whip antenna from back
+        ctx.strokeStyle = '#1a1008';
+        ctx.lineWidth = Math.max(1, sz * 0.04);
+        ctx.beginPath();
+        ctx.moveTo(sz * 0.2, -sz * 0.5);
+        ctx.lineTo(sz * 0.5, -sz * 2.0);
+        ctx.stroke();
+      } else if (role.extra === 'flag') {
+        // Flag pole + small flag
+        ctx.strokeStyle = '#3a2a18';
+        ctx.lineWidth = Math.max(1, sz * 0.05);
+        ctx.beginPath();
+        ctx.moveTo(sz * 0.4, -sz * 0.4);
+        ctx.lineTo(sz * 0.5, -sz * 1.8);
+        ctx.stroke();
+        ctx.fillStyle = '#c83030';
+        ctx.beginPath();
+        ctx.moveTo(sz * 0.5, -sz * 1.8);
+        ctx.lineTo(sz * 1.0, -sz * 1.55);
+        ctx.lineTo(sz * 0.5, -sz * 1.4);
+        ctx.closePath();
+        ctx.fill();
+      } else if (role.extra === 'tube') {
+        // Bangalore tube
+        ctx.fillStyle = '#1a1008';
+        ctx.fillRect(-sz * 0.5, -sz * 0.4, sz * 1.4, sz * 0.06);
+      } else if (role.extra === 'pack') {
+        // Big backpack
+        ctx.fillStyle = '#3a2a18';
+        ctx.fillRect(-sz * 0.4, -sz * 0.9, sz * 0.3, sz * 0.55);
+      } else if (role.extra === 'cap') {
+        // Officer also wears insignia; cap already drawn by helmet=cap above
+        ctx.fillStyle = '#d4a13a';
+        ctx.fillRect(sz * 0.1, -sz * 0.85, sz * 0.06, sz * 0.06);
+      }
+      ctx.restore();
+      // Role label
+      const label = role.icon + ' ' + role.name;
+      const fontSize = Math.max(10, Math.min(16, sz * 0.45));
+      ctx.save();
+      ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      const textW = ctx.measureText(label).width + 10;
+      const labelY = p.cy - p.sizePx * 1.65;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(p.cx - textW / 2, labelY - fontSize + 2, textW, fontSize + 6);
+      ctx.fillStyle = '#88c46a';
+      ctx.fillText(label, p.cx, labelY);
+      ctx.restore();
     }
   }
 
