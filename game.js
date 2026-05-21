@@ -6,7 +6,7 @@
    Touch: dual joysticks + fire button.
    ============================================================ */
 
-const BUILD_VERSION = 'v13 · swarm';
+const BUILD_VERSION = 'v14 · invasion';
 
 // ============================================================
 // PER-ROLE WEAPON SVGs  (overlay at the bottom of the screen)
@@ -707,17 +707,32 @@ class FpsGame {
       this.makeShermanWreck( 22, 5);
       this.makeShermanWreck(-30, -5);
 
-      // Higgins landing craft in the surf
-      this.makeHiggins(-22, 75, 0);              // mid-left, ramp open facing us
-      this.makeHiggins( 18, 80, 0.15);
-      this.makeHiggins( 50, 95, -0.3);           // far right
-      this.makeHiggins(-55, 100, 0.4);           // far left
+      // Higgins landing craft — multiple, sailing in continuously
+      this.makeHiggins(-22, 75, 0);
+      this.makeHiggins( 18, 80, 0);
+      this.makeHiggins( 50, 95, 0);
+      this.makeHiggins(-55, 100, 0);
+      this.makeHiggins(-10, 115, 0);
+      this.makeHiggins( 30, 125, 0);
+      this.makeHiggins(-40, 135, 0);
+      this.makeHiggins( 60, 145, 0);
+      this.makeHiggins(  0, 155, 0);
+
+      // Active Allied Sherman tanks advancing up the beach
+      this.makeAllyTank(-15, 45);
+      this.makeAllyTank( 22, 55);
+      this.makeAllyTank(-40, 65);
+
+      // Active German Panzer (drives slowly toward beach, fires)
+      this.makeEnemyTank(-35, -42);
+      this.makeEnemyTank( 30, -40);
 
       // Distant destroyers in deep water
       this.makeDestroyer(-70, 160, 0.1);
       this.makeDestroyer( 0, 175, 0);
       this.makeDestroyer( 80, 165, -0.05);
       this.makeDestroyer(-30, 190, 0.2);
+      this.makeDestroyer( 50, 200, 0.1);
     } else if (t === 'bocage') {
       // Two long hedgerow walls with a gap, repeated
       for (let row=0; row<3; row++) {
@@ -763,14 +778,14 @@ class FpsGame {
       this.makeJeep(8, 50);
     }
 
-    // Allies near player spawn — large initial wave
-    for (let i=0; i<18; i++) {
-      const ally = this.makeAllyMesh(rand(-50,50), 0, 55 + rand(-15, 25));
+    // Allies near player spawn — massive initial wave
+    for (let i=0; i<35; i++) {
+      const ally = this.makeAllyMesh(rand(-70,70), 0, 55 + rand(-20, 40));
       this.allies.push(ally);
     }
-    // Continuous reinforcements
-    this.allyRespawnTimer = 1.8;
-    this.maxAllies = 28;
+    // Continuous reinforcements pouring out of the surf
+    this.allyRespawnTimer = 1.0;
+    this.maxAllies = 70;
   }
 
   addObstacle(mesh, x, z, r) {
@@ -956,7 +971,15 @@ class FpsGame {
     g.position.set(x, 0.2, z);
     g.rotation.y = yawOffset || 0;
     this.scene.add(g);
-    this.addObstacle(g, x, z, 3.5);
+    // Track for sailing animation (do NOT add as obstacle — they're moving)
+    if (!this._higgins) this._higgins = [];
+    this._higgins.push({
+      mesh: g,
+      vz: -rand(1.6, 2.4),       // sails toward beach (negative Z)
+      stopZ: 72 + rand(-2, 4),    // stops at surf
+      resetZ: 130 + rand(0, 30),  // when past stopZ, reset to far back
+      bob: rand(0, Math.PI*2)
+    });
   }
 
   makeDestroyer(x, z, yawOffset) {
@@ -1000,6 +1023,223 @@ class FpsGame {
     if (!this._destroyers) this._destroyers = [];
     this._destroyers.push({ mesh: g, baseY: 0.5, phase: rand(0, Math.PI*2) });
     // Decorative only (no collision — too far away)
+  }
+
+  makeAllyTank(x, z) {
+    const g = new THREE.Group();
+    const olive = new THREE.MeshLambertMaterial({ color: 0x4a5a38 });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x1a1008 });
+    // Hull
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.3, 6.0), olive);
+    hull.position.y = 0.8; g.add(hull);
+    // Tracks
+    const tL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 6.4), dark);
+    tL.position.set(-1.8, 0.3, 0); g.add(tL);
+    const tR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 6.4), dark);
+    tR.position.set( 1.8, 0.3, 0); g.add(tR);
+    // Turret
+    const turret = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.0, 2.8), olive);
+    turret.position.y = 1.95; g.add(turret);
+    // Barrel (pointing forward = -Z)
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 3.4, 8), dark);
+    barrel.rotation.x = Math.PI/2; barrel.position.set(0, 1.95, -2.4);
+    g.add(barrel);
+    // White star on turret
+    const star = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+    star.position.set(0, 2.46, 0); star.rotation.x = -Math.PI/2;
+    g.add(star);
+    g.position.set(x, 0, z);
+    this.scene.add(g);
+    if (!this._allyTanks) this._allyTanks = [];
+    this._allyTanks.push({
+      mesh: g, barrel,
+      x, z,
+      vz: -rand(1.4, 2.4),  // advancing slowly toward enemy line
+      lastShot: 0,
+      shotCooldown: rand(3500, 5500),
+      trackPhase: 0
+    });
+  }
+
+  makeEnemyTank(x, z) {
+    const g = new THREE.Group();
+    const grey = new THREE.MeshLambertMaterial({ color: 0x4a4a3a });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x1a1008 });
+    // Hull (Panzer IV-like)
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.2, 6.0), grey);
+    hull.position.y = 0.75; g.add(hull);
+    // Tracks
+    const tL = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.5, 6.3), dark);
+    tL.position.set(-1.7, 0.3, 0); g.add(tL);
+    const tR = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.5, 6.3), dark);
+    tR.position.set( 1.7, 0.3, 0); g.add(tR);
+    // Turret
+    const turret = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.9, 2.6), grey);
+    turret.position.y = 1.8; g.add(turret);
+    // Long 75mm barrel pointing forward (+Z toward player)
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 4.0, 8), dark);
+    barrel.rotation.x = Math.PI/2; barrel.position.set(0, 1.8, 2.6);
+    g.add(barrel);
+    // Black cross marking on side
+    const cross = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), new THREE.MeshBasicMaterial({ color: 0xeeeeee, side: THREE.DoubleSide }));
+    cross.position.set(1.55, 1.0, 0); cross.rotation.y = Math.PI/2;
+    g.add(cross);
+    g.position.set(x, 0, z);
+    this.scene.add(g);
+    if (!this._enemyTanks) this._enemyTanks = [];
+    this._enemyTanks.push({
+      mesh: g, barrel,
+      x, z,
+      vz: rand(0.4, 0.9),  // slowly advancing toward beach (+Z)
+      lastShot: 0,
+      shotCooldown: rand(3000, 5000),
+      hp: 200, maxHp: 200,
+      hpBar: null
+    });
+  }
+
+  fireTankShell(fromX, fromY, fromZ, toX, toY, toZ, owner) {
+    const g = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), new THREE.MeshLambertMaterial({ color: 0xffcc44 }));
+    g.position.set(fromX, fromY, fromZ);
+    this.scene.add(g);
+    // Muzzle flash
+    const flash = new THREE.Mesh(new THREE.SphereGeometry(0.9, 10, 6), new THREE.MeshBasicMaterial({ color: 0xfff0a0, transparent: true, opacity: 1 }));
+    flash.position.set(fromX, fromY, fromZ);
+    this.scene.add(flash);
+    setTimeout(()=> this.scene.remove(flash), 90);
+    if (!this._tankShells) this._tankShells = [];
+    this._tankShells.push({
+      mesh: g,
+      sx: fromX, sy: fromY, sz: fromZ,
+      tx: toX, ty: toY, tz: toZ,
+      age: 0, dur: 0.7,
+      owner: owner || 'ally'
+    });
+  }
+
+  updateVehicles(dt) {
+    // Higgins boats sailing toward beach
+    if (this._higgins) {
+      for (const h of this._higgins) {
+        h.mesh.position.z += h.vz * dt;
+        h.bob = (h.bob||0) + dt * 1.2;
+        h.mesh.position.y = 0.2 + Math.sin(h.bob) * 0.12;
+        h.mesh.rotation.z = Math.sin(h.bob * 0.7) * 0.03;
+        if (h.mesh.position.z < h.stopZ) {
+          // Reached the surf — reset to far back to keep flow continuous
+          h.mesh.position.z = h.resetZ;
+          h.mesh.position.x = rand(-65, 65);
+        }
+      }
+    }
+    // Allied Sherman tanks advancing
+    if (this._allyTanks) {
+      for (const t of this._allyTanks) {
+        t.z += t.vz * dt;
+        t.mesh.position.z = t.z;
+        t.mesh.position.x = t.x;
+        // Track wobble (subtle vertical jitter)
+        t.trackPhase += dt * 8;
+        t.mesh.position.y = Math.abs(Math.sin(t.trackPhase)) * 0.04;
+        const now = this.time * 1000;
+        if (now - t.lastShot > t.shotCooldown) {
+          t.lastShot = now;
+          t.shotCooldown = rand(3500, 6000);
+          // Target a random enemy if any, else random point on enemy side
+          let tx = rand(-30, 30), ty = 1, tz = -45;
+          const alive = this.enemies.filter(e=>!e.dead);
+          if (alive.length) {
+            const e = alive[Math.floor(Math.random()*alive.length)];
+            tx = e.x; tz = e.z; ty = 1;
+          }
+          this.fireTankShell(t.x, 2.0, t.z - 2.6, tx, ty, tz, 'ally');
+        }
+        // Reset when past enemy line
+        if (t.z < -60) {
+          t.z = 70 + rand(0, 10);
+          t.x = rand(-50, 50);
+        }
+      }
+    }
+    // Enemy Panzers advancing toward player
+    if (this._enemyTanks) {
+      for (const t of this._enemyTanks) {
+        if (t.hp <= 0) {
+          this.scene.remove(t.mesh);
+          continue;
+        }
+        t.z += t.vz * dt;
+        t.mesh.position.z = t.z;
+        t.mesh.position.x = t.x;
+        const now = this.time * 1000;
+        if (now - t.lastShot > t.shotCooldown) {
+          t.lastShot = now;
+          t.shotCooldown = rand(3000, 5500);
+          // Fire at player
+          const px = this.camera.position.x;
+          const pz = this.camera.position.z;
+          this.fireTankShell(t.x, 2.0, t.z + 2.8, px, 1.5, pz, 'enemy');
+        }
+      }
+      this._enemyTanks = this._enemyTanks.filter(t=>t.hp>0);
+    }
+    // Shells flying
+    if (this._tankShells) {
+      for (const s of this._tankShells) {
+        s.age += dt;
+        const p = clamp(s.age / s.dur, 0, 1);
+        s.mesh.position.x = lerp(s.sx, s.tx, p);
+        s.mesh.position.y = lerp(s.sy, s.ty, p) + Math.sin(p * Math.PI) * 8;
+        s.mesh.position.z = lerp(s.sz, s.tz, p);
+        if (p >= 1 && !s.exploded) {
+          s.exploded = true;
+          // Explosion
+          const ex = new THREE.Mesh(new THREE.SphereGeometry(4, 14, 10), new THREE.MeshBasicMaterial({ color: 0xffaa44, transparent: true, opacity: 0.9 }));
+          ex.position.set(s.tx, Math.max(0.5, s.ty), s.tz);
+          this.scene.add(ex);
+          s.ex = ex; s.exLife = 0.5;
+          const sm = new THREE.Mesh(new THREE.SphereGeometry(3.0, 10, 8), new THREE.MeshLambertMaterial({ color: 0x2a2218, transparent: true, opacity: 0.8 }));
+          sm.position.set(s.tx, 3, s.tz);
+          this.scene.add(sm);
+          s.sm = sm; s.smLife = 2.0;
+          this.scene.remove(s.mesh);
+          // Damage
+          if (s.owner === 'ally') {
+            for (const e of this.enemies) {
+              if (e.dead) continue;
+              const dx = e.x - s.tx, dz = e.z - s.tz;
+              if (dx*dx + dz*dz < 25) this.hitEnemy(e, 110);
+            }
+          } else {
+            // enemy shell - damage player if close
+            const dx = this.camera.position.x - s.tx;
+            const dz = this.camera.position.z - s.tz;
+            if (dx*dx + dz*dz < 16) this.damagePlayer(60);
+            this.shake = Math.max(this.shake, 0.4);
+          }
+        }
+        if (s.exploded) {
+          s.exLife -= dt;
+          s.smLife -= dt;
+          if (s.ex) {
+            s.ex.scale.setScalar(1 + (1 - s.exLife/0.5) * 1.5);
+            s.ex.material.opacity = Math.max(0, s.exLife / 0.5 * 0.9);
+          }
+          if (s.sm) {
+            s.sm.position.y += dt * 0.5;
+            s.sm.material.opacity = Math.max(0, s.smLife / 2.0 * 0.8);
+          }
+        }
+      }
+      this._tankShells = this._tankShells.filter(s => {
+        if (s.exploded && s.smLife <= 0) {
+          if (s.ex) this.scene.remove(s.ex);
+          if (s.sm) this.scene.remove(s.sm);
+          return false;
+        }
+        return true;
+      });
+    }
   }
 
   makeJeep(x, z) {
@@ -1291,7 +1531,7 @@ class FpsGame {
   // ---- ENEMIES ----
 
   spawnWave() {
-    const baseCount = 8 + this.wave * 3;  // ramped up — was 4 + wave
+    const baseCount = 18 + this.wave * 6;  // massive — was 8 + 3*wave
     const count = Math.round(baseCount * this.level.enemyCount);
     for (let i=0; i<count; i++) {
       const type = this.pickEnemyType();
@@ -1669,14 +1909,14 @@ class FpsGame {
     });
     if (this.level.terrain === 'beach') {
       this.allyRespawnTimer = (this.allyRespawnTimer || 2) - dt;
-      if (this.allyRespawnTimer <= 0 && this.allies.length < (this.maxAllies || 28)) {
-        // Spawn batch of 2-3 new allies coming out of the water
-        const n = Math.floor(rand(2, 4));
+      if (this.allyRespawnTimer <= 0 && this.allies.length < (this.maxAllies || 70)) {
+        // Spawn batch of 4-6 new allies coming out of the water
+        const n = Math.floor(rand(4, 7));
         for (let i = 0; i < n; i++) {
-          const ally = this.makeAllyMesh(rand(-55, 55), 0, 78 + rand(-6, 6));
+          const ally = this.makeAllyMesh(rand(-70, 70), 0, 80 + rand(-8, 8));
           this.allies.push(ally);
         }
-        this.allyRespawnTimer = rand(2.5, 4.5);
+        this.allyRespawnTimer = rand(1.2, 2.2);
       }
     }
 
@@ -1693,6 +1933,8 @@ class FpsGame {
 
     // Sky activity (planes, paratroopers, bombs)
     this.updateSky(dt);
+    // Boats sailing in + tanks driving and firing
+    this.updateVehicles(dt);
 
     // Grenades
     for (const g of this.grenades) this.updateGrenade(g, dt);
