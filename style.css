@@ -2976,3 +2976,70 @@ html, body { height: 100%; overscroll-behavior: none; }
 }
 .dday-error h2 { color: #ff5a4a; margin-bottom: 1rem; }
 .dday-error p { color: #c0a090; margin-bottom: 1.5rem; max-width: 400px; line-height: 1.6; }
+
+/* D-Day v15 — tank prompt + sniper scope */
+.dday-enter-tank {
+  position: absolute;
+  bottom: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.7);
+  border: 2px solid #d4a13a;
+  color: #fff;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  z-index: 8;
+  pointer-events: none;
+  display: none;
+  animation: ddayPulseScale 1.4s ease infinite;
+}
+.dday-enter-tank kbd {
+  background: #d4a13a;
+  color: #1a1008;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: 900;
+}
+.dday-exit-tank {
+  position: absolute;
+  bottom: 4.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.65);
+  border: 2px solid #c83040;
+  color: #fff;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  z-index: 8;
+  pointer-events: none;
+  display: none;
+}
+.dday-exit-tank kbd {
+  background: #c83040; color: #fff;
+  padding: 0.05rem 0.35rem; border-radius: 4px;
+  font-family: monospace; font-weight: 900;
+}
+.dday-scope {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 7;
+  opacity: 0;
+  background:
+    radial-gradient(circle at center, transparent 32%, transparent 33%, rgba(0,0,0,0.96) 34%),
+    radial-gradient(circle at center, transparent 31%, rgba(0,0,0,0.5) 32%, rgba(0,0,0,0.5) 33%, transparent 34%);
+  transition: opacity 0.15s linear;
+}
+.dday-scope::before, .dday-scope::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  background: rgba(20, 20, 20, 0.9);
+}
+.dday-scope::before { width: 1px; height: 30%; transform: translate(-50%, -50%); }
+.dday-scope::after { width: 30%; height: 1px; transform: translate(-50%, -50%); }

@@ -6,7 +6,7 @@
    Touch: dual joysticks + fire button.
    ============================================================ */
 
-const BUILD_VERSION = 'v14 · invasion';
+const BUILD_VERSION = 'v15 · roleplay';
 
 // ============================================================
 // PER-ROLE WEAPON SVGs  (overlay at the bottom of the screen)
@@ -511,6 +511,9 @@ function startGameplay(){
       </div>
       <button class="dday-pause" id="dday-pause">⏸</button>
       <div class="dday-toast" id="dday-toast"></div>
+      <div class="dday-enter-tank" id="dday-enter-tank">🛡 Press <kbd>E</kbd> to drive Sherman</div>
+      <div class="dday-exit-tank" id="dday-exit-tank">🛡 <kbd>E</kbd> exit · click fires 75mm</div>
+      <div class="dday-scope" id="dday-scope"></div>
     </section>`;
   const canvas = document.getElementById('dday-canvas');
   fpsGame = new FpsGame(r, l, canvas);
@@ -553,10 +556,21 @@ class FpsGame {
 
     const aspect = window.innerWidth/window.innerHeight;
     this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 500);
-    this.camera.position.set(0, 1.7, 60);  // spawn at "water" end of beach
+    // Per-role spawn position
+    let spawnX = 0, spawnY = 1.7, spawnZ = 60;
+    this.paraDrop = false;
+    this.controlsLocked = false;
+    if (role.id === 'paratrooper') {
+      spawnX = rand(-20, 20); spawnY = 50; spawnZ = -25; // dropping behind enemy line!
+      this.paraDrop = true;
+      this.controlsLocked = true;
+    } else if (role.id === 'ranger') {
+      spawnZ = 35;  // closer to action — cliff assault feel
+    }
+    this.camera.position.set(spawnX, spawnY, spawnZ);
     this.camera.rotation.order = 'YXZ';
     lookYaw = Math.PI; // face -Z (into the beach)
-    lookPitch = 0;
+    lookPitch = this.paraDrop ? -0.3 : 0;
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -638,7 +652,47 @@ class FpsGame {
     this.nextBomb = rand(3, 7);
     this.nextPlane = rand(8, 14);
 
-    this.toast('Off the boat — find cover and push up the beach', 2400);
+    // Paratrooper: parachute mesh attached above the camera
+    if (this.paraDrop) {
+      const white = new THREE.MeshLambertMaterial({ color: 0xeae0c8, side: THREE.DoubleSide });
+      const dark = new THREE.MeshLambertMaterial({ color: 0x2a2018 });
+      const para = new THREE.Group();
+      const chute = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 8, 0, Math.PI*2, 0, Math.PI/2), white);
+      chute.position.y = 3.5; para.add(chute);
+      [[-2,-2],[2,-2],[-2,2],[2,2]].forEach(([sx,sz])=>{
+        const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 4, 4), dark);
+        rope.position.set(sx*0.4, 1.5, sz*0.4);
+        rope.rotation.z = Math.atan2(0 - sx, 4);
+        para.add(rope);
+      });
+      this.scene.add(para);
+      this.paraMesh = para;
+    }
+
+    // Tank driving state
+    this.inTank = null;       // currently driven tank (Sherman vehicle)
+    this.nearTank = null;     // closest tank within enter range
+    this._tankInteract = 0;   // throttle for E key
+
+    // Sniper ADS (zoom)
+    this.adsActive = false;
+    this.adsTransition = 0;
+    this.baseFov = 75;
+    this.adsFov = 32;
+
+    // Medic heal aura tick
+    this._healAuraTimer = 0;
+
+    // Initial toast
+    const intro = {
+      rifleman:   'Off the Higgins boat — push up the beach',
+      paratrooper:'Drop zone! Parachute open, you\'re behind the German line',
+      medic:      'Stay alive — your heal aura keeps allies up',
+      ranger:     'Forward position — assault the bunkers',
+      sniper:     'Right-click to scope · pick your shots',
+      heavy:      'Belt-fed — Q to brace for ×2 damage'
+    }[role.id] || 'Engage';
+    this.toast(intro, 3000);
     this.drawGun();
   }
 
@@ -1025,6 +1079,88 @@ class FpsGame {
     // Decorative only (no collision — too far away)
   }
 
+  enterTank() {
+    if (!this.nearTank || this.inTank) return;
+    this.inTank = this.nearTank;
+    this.inTank.driven = true;
+    this.inTank.lastShot = -99999;  // ready to fire immediately
+    // Hide gun overlay
+    const gunEl = document.getElementById('dday-fps-gun');
+    if (gunEl) gunEl.style.display = 'none';
+    const tEl = document.getElementById('dday-enter-tank');
+    if (tEl) tEl.style.display = 'none';
+    const exit = document.getElementById('dday-exit-tank');
+    if (exit) exit.style.display = 'block';
+    this.toast('Driving Sherman — WASD to drive, click to fire 75mm, E to exit', 3500);
+  }
+  exitTank() {
+    if (!this.inTank) return;
+    const t = this.inTank;
+    t.driven = false;
+    // Position player next to tank (offset right)
+    const ang = (t.yaw || 0);
+    this.camera.position.x = t.x + Math.cos(ang) * 3;
+    this.camera.position.z = t.z + Math.sin(ang) * 3;
+    this.camera.position.y = 1.7;
+    this.inTank = null;
+    const gunEl = document.getElementById('dday-fps-gun');
+    if (gunEl) gunEl.style.display = '';
+    const exit = document.getElementById('dday-exit-tank');
+    if (exit) exit.style.display = 'none';
+    this.toast('Out of tank', 1500);
+  }
+
+  updateTankDriving(dt) {
+    const t = this.inTank;
+    if (!t) return;
+    // Controls: WASD drives the tank
+    let throttle = 0, steer = 0;
+    if (keys['w'] || keys['arrowup'])    throttle += 1;
+    if (keys['s'] || keys['arrowdown'])  throttle -= 1;
+    if (keys['a'] || keys['arrowleft'])  steer -= 1;
+    if (keys['d'] || keys['arrowright']) steer += 1;
+    if (touchMove.active) { throttle += -touchMove.y; steer += touchMove.x; }
+    t.yaw = (t.yaw || 0) + steer * 1.2 * dt;
+    const speed = 8 * throttle;
+    const dx = Math.sin(t.yaw) * speed * dt;
+    const dz = Math.cos(t.yaw) * speed * dt;
+    // Crude collision check (skip obstacles since tank is heavy)
+    t.x = clamp(t.x + dx, -85, 85);
+    t.z = clamp(t.z + dz, -55, 85);
+    t.mesh.position.set(t.x, 0, t.z);
+    t.mesh.rotation.y = t.yaw + Math.PI;  // model faces -Z by default
+
+    // Look: mouse turns turret (in addition to base yaw)
+    if (touchLook.active) {
+      lookYaw   -= touchLook.x * dt * 2.0;
+      lookPitch -= touchLook.y * dt * 1.6;
+      lookPitch = clamp(lookPitch, -Math.PI/4, Math.PI/4);
+    }
+    this.camera.rotation.y = lookYaw;
+    this.camera.rotation.x = lookPitch;
+
+    // Camera sits on top of turret, behind, looking forward
+    const camOff = 1.2;
+    this.camera.position.x = t.x - Math.sin(t.yaw) * camOff;
+    this.camera.position.z = t.z - Math.cos(t.yaw) * camOff;
+    this.camera.position.y = 3.0;
+  }
+
+  tankFire() {
+    if (!this.inTank) return;
+    const t = this.inTank;
+    const now = this.time * 1000;
+    if (now - (t.lastShot || 0) < 1200) return;
+    t.lastShot = now;
+    // Fire shell from camera forward
+    const dir = new THREE.Vector3();
+    this.camera.getWorldDirection(dir);
+    const start = new THREE.Vector3(t.x + Math.sin(t.yaw)*2.5, 2.0, t.z + Math.cos(t.yaw)*2.5);
+    const target = start.clone().add(dir.multiplyScalar(80));
+    this.fireTankShell(start.x, start.y, start.z, target.x, Math.max(0.5, target.y), target.z, 'ally');
+    this.shake = Math.max(this.shake, 0.15);
+  }
+
   makeAllyTank(x, z) {
     const g = new THREE.Group();
     const olive = new THREE.MeshLambertMaterial({ color: 0x4a5a38 });
@@ -1135,6 +1271,7 @@ class FpsGame {
     // Allied Sherman tanks advancing
     if (this._allyTanks) {
       for (const t of this._allyTanks) {
+        if (t.driven) continue;  // player is driving this one — skip auto AI
         t.z += t.vz * dt;
         t.mesh.position.z = t.z;
         t.mesh.position.x = t.x;
@@ -1659,6 +1796,8 @@ class FpsGame {
 
   tryFire() {
     if (this.over || this.paused) return;
+    if (this.controlsLocked) return;
+    if (this.inTank) { this.tankFire(); return; }
     if (this.reloading) return;
     const w = this.role.weapon;
     if (this.mag <= 0) { this.reload(); return; }
@@ -1801,13 +1940,63 @@ class FpsGame {
   update(dt) {
     this.time += dt;
 
+    // Paratrooper descent intro
+    if (this.paraDrop) {
+      this.camera.position.y -= 6 * dt;
+      this.camera.position.x += Math.sin(this.time * 0.7) * 0.4 * dt;
+      if (this.paraMesh) {
+        this.paraMesh.position.copy(this.camera.position);
+        this.paraMesh.position.y += 0.5;
+        this.paraMesh.rotation.y = Math.sin(this.time * 0.4) * 0.1;
+      }
+      // Touch look still allowed
+      if (touchLook.active) {
+        lookYaw   -= touchLook.x * dt * 2.2;
+        lookPitch -= touchLook.y * dt * 1.8;
+        lookPitch = clamp(lookPitch, -Math.PI/2 + 0.05, Math.PI/2 - 0.05);
+      }
+      this.camera.rotation.y = lookYaw;
+      this.camera.rotation.x = lookPitch;
+      if (this.camera.position.y <= 1.7) {
+        this.camera.position.y = 1.7;
+        this.paraDrop = false;
+        this.controlsLocked = false;
+        if (this.paraMesh) {
+          this.scene.remove(this.paraMesh);
+          this.paraMesh = null;
+        }
+        lookPitch = 0;
+        this.toast('Boots on the ground — fight!', 2000);
+      }
+      // Skip rest of update during descent (no shooting, no waves running)
+      return;
+    }
+
+    // Sniper ADS zoom transition
+    if (this.role.id === 'sniper') {
+      const targetT = this.adsActive ? 1 : 0;
+      this.adsTransition = lerp(this.adsTransition, targetT, Math.min(1, dt * 8));
+      this.camera.fov = lerp(this.baseFov, this.adsFov, this.adsTransition);
+      this.camera.updateProjectionMatrix();
+      const scopeEl = document.getElementById('dday-scope');
+      if (scopeEl) scopeEl.style.opacity = this.adsTransition;
+    }
+
+    // Tank-driving mode: completely different controls
+    if (this.inTank) {
+      this.updateTankDriving(dt);
+      return;
+    }
+
     // Movement
     const sp = 6 * (this.sprintActive || keys['shift'] ? 1.6 : 1);
     let mx = 0, mz = 0;
-    if (keys['w'] || keys['arrowup'])    mz -= 1;
-    if (keys['s'] || keys['arrowdown'])  mz += 1;
-    if (keys['a'] || keys['arrowleft'])  mx -= 1;
-    if (keys['d'] || keys['arrowright']) mx += 1;
+    if (!this.controlsLocked) {
+      if (keys['w'] || keys['arrowup'])    mz -= 1;
+      if (keys['s'] || keys['arrowdown'])  mz += 1;
+      if (keys['a'] || keys['arrowleft'])  mx -= 1;
+      if (keys['d'] || keys['arrowright']) mx += 1;
+    }
     if (touchMove.active) { mx += touchMove.x; mz += touchMove.y; }
     const len = Math.hypot(mx, mz);
     if (len > 0) { mx /= len; mz /= len; this.gunBob += dt * (sp/2); }
@@ -1832,6 +2021,41 @@ class FpsGame {
     if (inWater) { dx *= 0.6; dz *= 0.6; }
     // Apply with obstacle collision
     this.movePlayer(dx, dz);
+
+    // Medic heal aura: heal self and nearby allies every 2s
+    if (this.role.id === 'medic') {
+      this._healAuraTimer -= dt;
+      if (this._healAuraTimer <= 0) {
+        this._healAuraTimer = 2.0;
+        if (this.hp < this.maxHp) {
+          this.hp = Math.min(this.maxHp, this.hp + 4);
+          this.updateHpHUD();
+        }
+        for (const a of this.allies) {
+          if (a.dead) continue;
+          const dx = a.mesh.position.x - this.camera.position.x;
+          const dz = a.mesh.position.z - this.camera.position.z;
+          if (dx*dx + dz*dz < 100) {
+            a.hp = Math.min(60, (a.hp || 60) + 6);
+          }
+        }
+      }
+    }
+
+    // Tank-enter prompt: find closest allied tank within 5m
+    this.nearTank = null;
+    if (this._allyTanks) {
+      let best = null, bd = 5*5;
+      for (const t of this._allyTanks) {
+        const dx = t.x - this.camera.position.x;
+        const dz = t.z - this.camera.position.z;
+        const d2 = dx*dx + dz*dz;
+        if (d2 < bd) { bd = d2; best = t; }
+      }
+      this.nearTank = best;
+    }
+    const tEl = document.getElementById('dday-enter-tank');
+    if (tEl) tEl.style.display = (this.nearTank && !this.inTank) ? 'block' : 'none';
 
     // Reloading
     if (this.reloading) {
@@ -2307,8 +2531,23 @@ function setupInput(canvas) {
       lookPitch = clamp(lookPitch, -Math.PI/2 + 0.05, Math.PI/2 - 0.05);
     }
   });
-  document.addEventListener('mousedown', ()=>{ if (pointerLocked) { mouseDown = true; if (fpsGame) fpsGame.tryFire(); } });
-  document.addEventListener('mouseup', ()=>{ mouseDown = false; });
+  document.addEventListener('mousedown', e=>{
+    if (!pointerLocked) return;
+    if (e.button === 2) {
+      // Right click: sniper ADS
+      if (fpsGame && fpsGame.role.id === 'sniper') fpsGame.adsActive = true;
+      return;
+    }
+    mouseDown = true;
+    if (fpsGame) fpsGame.tryFire();
+  });
+  document.addEventListener('mouseup', e=>{
+    if (e.button === 2) {
+      if (fpsGame && fpsGame.role.id === 'sniper') fpsGame.adsActive = false;
+      return;
+    }
+    mouseDown = false;
+  });
   document.addEventListener('contextmenu', e=>{ if (pointerLocked) e.preventDefault(); });
 
   setupTouchSticks();
@@ -2321,6 +2560,13 @@ function onKeyDown(e) {
   if (k === 'r') { e.preventDefault(); if (fpsGame) fpsGame.reload(); }
   if (k === ' ') { e.preventDefault(); if (fpsGame) fpsGame.tryFire(); }
   if (k === 'p') { if (fpsGame) { fpsGame.paused ? fpsGame.resume() : fpsGame.pause(); } }
+  if (k === 'e') {
+    e.preventDefault();
+    if (fpsGame) {
+      if (fpsGame.inTank) fpsGame.exitTank();
+      else if (fpsGame.nearTank) fpsGame.enterTank();
+    }
+  }
   if (k === 'escape') { /* pointer lock auto-releases */ }
 }
 function onKeyUp(e) { keys[e.key.toLowerCase()] = false; }
