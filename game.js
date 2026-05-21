@@ -6,7 +6,7 @@
    Touch: dual joysticks + fire button.
    ============================================================ */
 
-const BUILD_VERSION = 'v16 · breach';
+const BUILD_VERSION = 'v17 · fix';
 
 // ============================================================
 // PER-ROLE WEAPON SVGs  (overlay at the bottom of the screen)
@@ -117,76 +117,76 @@ console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;fo
 
 const ROLES = {
   rifleman: { id:'rifleman', name:'Rifleman', fullName:'Pvt. James Miller', unit:'1st Infantry · Omaha Beach', icon:'🎯',
-    color:0x4a8754, accentHex:'#88c46a', colorHex:'#4a8754',
-    hp:100,
-    weapon:{ name:'M1 Garand', mag:8, reserve:64, fireMs:240, reloadMs:2000, dmg:38, auto:false, spread:0.012, recoil:0.04, range:90 },
+    color:0x3060a0, accentHex:'#5090d0', colorHex:'#3060a0',
+    hp:120,
+    weapon:{ name:'M1 Garand', mag:8, reserve:64, fireMs:240, reloadMs:2000, dmg:45, auto:false, spread:0.012, recoil:0.04, range:200 },
     ability:{ name:'Aimed Shot', key:'Q', cooldown:7000, desc:'Next shot deals 3× damage' },
     difficulty:2,
     blurb:'M1 Garand. 8-round clip, semi-auto. Steady, accurate, deadly.'
   },
   paratrooper: { id:'paratrooper', name:'Paratrooper', fullName:'Sgt. William O\'Connor', unit:'101st Airborne · Sainte-Mère-Église', icon:'🪂',
-    color:0x6e7a3a, accentHex:'#c8d058', colorHex:'#6e7a3a',
-    hp:80,
-    weapon:{ name:'Thompson M1A1', mag:30, reserve:120, fireMs:90, reloadMs:2400, dmg:14, auto:true, spread:0.045, recoil:0.02, range:50 },
+    color:0x3060a0, accentHex:'#5090d0', colorHex:'#3060a0',
+    hp:100,
+    weapon:{ name:'Thompson M1A1', mag:30, reserve:120, fireMs:90, reloadMs:2400, dmg:18, auto:true, spread:0.045, recoil:0.02, range:120 },
     ability:{ name:'Sprint', key:'Q', cooldown:6500, desc:'2s of much faster movement' },
     difficulty:3,
     blurb:'Thompson SMG. 30-round mag. Spray and pray, get up close.'
   },
   medic: { id:'medic', name:'Medic', fullName:'Cpl. Samuel Cohen', unit:'4th Infantry · Utah Beach', icon:'⚕️',
-    color:0x8a4040, accentHex:'#e07070', colorHex:'#8a4040',
-    hp:130,
-    weapon:{ name:'Colt M1911', mag:7, reserve:56, fireMs:260, reloadMs:1800, dmg:24, auto:false, spread:0.02, recoil:0.03, range:55 },
+    color:0x3060a0, accentHex:'#e07070', colorHex:'#3060a0',
+    hp:150,
+    weapon:{ name:'Colt M1911', mag:7, reserve:56, fireMs:260, reloadMs:1800, dmg:30, auto:false, spread:0.02, recoil:0.03, range:120 },
     ability:{ name:'Field Dressing', key:'Q', cooldown:9000, desc:'Heal 60 HP instantly' },
     difficulty:2,
     blurb:'Sidearm and a medic bag. Heal in a pinch. .45 ACP packs a punch.'
   },
   ranger: { id:'ranger', name:'Ranger', fullName:'Cpl. Leonard Lomell', unit:'2nd Rangers · Pointe du Hoc', icon:'💣',
-    color:0x4a5a78, accentHex:'#7090c0', colorHex:'#4a5a78',
-    hp:90,
-    weapon:{ name:'M1 Carbine', mag:15, reserve:90, fireMs:200, reloadMs:2200, dmg:20, auto:false, spread:0.018, recoil:0.03, range:75 },
+    color:0x3060a0, accentHex:'#5090d0', colorHex:'#3060a0',
+    hp:110,
+    weapon:{ name:'M1 Carbine', mag:15, reserve:90, fireMs:200, reloadMs:2200, dmg:26, auto:false, spread:0.018, recoil:0.03, range:160 },
     ability:{ name:'Grenade', key:'Q', cooldown:5500, desc:'Lob a grenade at your crosshair' },
     difficulty:3,
     blurb:'M1 Carbine and a satchel of frags. Crack open clusters of enemies.'
   },
   sniper: { id:'sniper', name:'Sniper', fullName:'Sgt. Robert Watson', unit:'29th Infantry · Bocage', icon:'🔭',
-    color:0x3a5a3a, accentHex:'#80a060', colorHex:'#3a5a3a',
-    hp:70,
-    weapon:{ name:'Springfield M1903', mag:5, reserve:30, fireMs:1100, reloadMs:3000, dmg:120, auto:false, spread:0.002, recoil:0.08, range:160 },
+    color:0x3060a0, accentHex:'#5090d0', colorHex:'#3060a0',
+    hp:90,
+    weapon:{ name:'Springfield M1903', mag:5, reserve:30, fireMs:1100, reloadMs:3000, dmg:160, auto:false, spread:0.002, recoil:0.08, range:350 },
     ability:{ name:'Piercing Shot', key:'Q', cooldown:8000, desc:'Next shot passes through everything' },
     difficulty:4,
     blurb:'Bolt-action with a scope. Slow, fragile, lethal. One shot, one kill.'
   },
   heavy: { id:'heavy', name:'Heavy Gunner', fullName:'Pvt. Dale Vandegrift', unit:'29th Infantry · Omaha Beach', icon:'⚙️',
-    color:0x6a5028, accentHex:'#c89040', colorHex:'#6a5028',
-    hp:140,
-    weapon:{ name:'BAR M1918A2', mag:20, reserve:100, fireMs:110, reloadMs:2800, dmg:24, auto:true, spread:0.035, recoil:0.025, range:65 },
+    color:0x3060a0, accentHex:'#5090d0', colorHex:'#3060a0',
+    hp:170,
+    weapon:{ name:'BAR M1918A2', mag:20, reserve:100, fireMs:110, reloadMs:2800, dmg:30, auto:true, spread:0.035, recoil:0.025, range:140 },
     ability:{ name:'Brace', key:'Q', cooldown:7000, desc:'2s of double damage, less spread' },
     difficulty:3,
     blurb:'BAR automatic rifle. Hits hard, eats ammo.'
   },
-  pilot: { id:'pilot', name:'Pilot', fullName:'Lt. Frank Kowalski', unit:'9th Air Force · P-47 Thunderbolt', icon:'✈️',
-    color:0x586848, accentHex:'#a8c060', colorHex:'#586848',
-    hp:90,
-    weapon:{ name:'8× .50 BMG', mag:200, reserve:0, fireMs:50, reloadMs:0, dmg:14, auto:true, spread:0.025, recoil:0.01, range:140 },
+  pilot: { id:'pilot', name:'Pilot', fullName:'Lt. Frank Kowalski', unit:'9th Air Force · RAF Kenley, England', icon:'✈️',
+    color:0x3060a0, accentHex:'#5090d0', colorHex:'#3060a0',
+    hp:100,
+    weapon:{ name:'8× .50 BMG', mag:200, reserve:0, fireMs:50, reloadMs:0, dmg:20, auto:true, spread:0.025, recoil:0.01, range:300 },
     ability:{ name:'Rocket Pod', key:'Q', cooldown:6000, desc:'Salvo of 6 unguided rockets' },
     difficulty:3,
-    blurb:'P-47 Thunderbolt at low altitude. Strafe enemy positions from the air.'
+    blurb:'P-47 Thunderbolt from RAF Kenley. Crosses the Channel and strafes German positions.'
   },
   tankdriver: { id:'tankdriver', name:'Tank Driver', fullName:'Cpl. Frank Davis', unit:'743rd Tank Battalion · Sherman DD', icon:'🛡',
-    color:0x4a5a38, accentHex:'#7a9050', colorHex:'#4a5a38',
-    hp:200,
-    weapon:{ name:'75mm M3 + .30 cal', mag:30, reserve:120, fireMs:1100, reloadMs:1500, dmg:120, auto:false, spread:0.01, recoil:0.05, range:120 },
+    color:0x3060a0, accentHex:'#5090d0', colorHex:'#3060a0',
+    hp:240,
+    weapon:{ name:'75mm M3 + .30 cal', mag:30, reserve:120, fireMs:1100, reloadMs:1500, dmg:150, auto:false, spread:0.01, recoil:0.05, range:220 },
     ability:{ name:'Smoke Round', key:'Q', cooldown:9000, desc:'Lay a smoke screen 30m ahead' },
     difficulty:2,
     blurb:'Sherman tank crew. Heavy armor, devastating 75mm gun. Lead the armored breach.'
   },
-  captain: { id:'captain', name:'Captain', fullName:'Cpt. Joseph Dawson', unit:'16th Infantry · Easy Company CO', icon:'⭐',
-    color:0x5a4830, accentHex:'#c89040', colorHex:'#5a4830',
-    hp:120,
-    weapon:{ name:'M1A1 Carbine', mag:15, reserve:90, fireMs:200, reloadMs:2200, dmg:22, auto:false, spread:0.015, recoil:0.03, range:80 },
+  captain: { id:'captain', name:'Captain', fullName:'Cpt. Joseph Dawson', unit:'16th Infantry · Sailing from Portsmouth', icon:'⭐',
+    color:0x3060a0, accentHex:'#ffd75a', colorHex:'#3060a0',
+    hp:150,
+    weapon:{ name:'M1A1 Carbine', mag:15, reserve:90, fireMs:200, reloadMs:2200, dmg:28, auto:false, spread:0.015, recoil:0.03, range:150 },
     ability:{ name:'Rally', key:'Q', cooldown:7000, desc:'5s allied accuracy ×2 + advance faster' },
     difficulty:2,
-    blurb:'Easy Company commander. Doubles starting squad + rally cry buffs allies.'
+    blurb:'Easy Company commander. Sails from Portsmouth with a double-strength squad.'
   }
 };
 const ROLE_ORDER = ['rifleman','paratrooper','medic','ranger','sniper','heavy','pilot','tankdriver','captain'];
@@ -262,16 +262,17 @@ const LEVELS = [
 // ENEMY TYPES
 // ============================================================
 
-// Germans wear feldgrau / blue-grey uniforms — clearly distinct from Allied olive drab.
+// Germans wear bold red uniforms in this stylised version — instantly visible against
+// the blue-uniformed Allies. (Historically feldgrau, but the user wants clear teams.)
 const ENEMY_TYPES = {
-  infantry: { name:'Wehrmacht Heer', weapon:'Mauser K98k', hp:45, speed:2.5, dmg:7, fireMs:1700, accuracy:0.32, range:50, score:15, color:0x6a7080, accent:0x4a5060 },
-  rifleman: { name:'Wehrmacht Grenadier', weapon:'Gewehr 43', hp:70, speed:2.3, dmg:10, fireMs:1300, accuracy:0.42, range:60, score:25, color:0x6a7080, accent:0x4a5060 },
-  mg:       { name:'MG-42 Gunner', weapon:'MG-42', hp:110, speed:0.8, dmg:5, fireMs:220, accuracy:0.4, range:75, burst:5, score:60, color:0x5a6070, accent:0x3a4050 },
-  sniper:   { name:'Scharfschütze', weapon:'K98k w/ Zeiss', hp:50, speed:1.8, dmg:22, fireMs:2200, accuracy:0.75, range:110, score:70, color:0x7080a0, accent:0x405060 },
-  ss:       { name:'Waffen-SS', weapon:'MP 40', hp:85, speed:3.0, dmg:8, fireMs:420, accuracy:0.45, range:48, burst:3, score:50, color:0x404858, accent:0x202830 },
-  mg_nest:  { name:'MG-42 Bunker', weapon:'Twin MG-42', hp:420, speed:0, dmg:8, fireMs:180, accuracy:0.55, range:95, isStatic:true, score:400, color:0x6a6878, accent:0x404858 },
-  tank:     { name:'Panzer IV', weapon:'75mm KwK 40', hp:640, speed:0.8, dmg:35, fireMs:2500, accuracy:0.7, range:80, isVehicle:true, score:300, color:0x7a8090, accent:0x4a5060 },
-  officer:  { name:'SS-Hauptsturmführer', weapon:'MP 40 + Luger', hp:720, speed:2.3, dmg:11, fireMs:380, accuracy:0.65, range:55, burst:4, score:600, color:0x404858, accent:0x808898 }
+  infantry: { name:'Wehrmacht Heer', weapon:'Mauser K98k', hp:45, speed:2.5, dmg:7, fireMs:1700, accuracy:0.32, range:80, score:15, color:0xc83030, accent:0x801818 },
+  rifleman: { name:'Wehrmacht Grenadier', weapon:'Gewehr 43', hp:70, speed:2.3, dmg:10, fireMs:1300, accuracy:0.42, range:100, score:25, color:0xc83030, accent:0x801818 },
+  mg:       { name:'MG-42 Gunner', weapon:'MG-42', hp:110, speed:0.8, dmg:5, fireMs:220, accuracy:0.4, range:120, burst:5, score:60, color:0xb02020, accent:0x701010 },
+  sniper:   { name:'Scharfschütze', weapon:'K98k w/ Zeiss', hp:50, speed:1.8, dmg:22, fireMs:2200, accuracy:0.75, range:200, score:70, color:0xc83030, accent:0x801818 },
+  ss:       { name:'Waffen-SS', weapon:'MP 40', hp:85, speed:3.0, dmg:8, fireMs:420, accuracy:0.45, range:80, burst:3, score:50, color:0x801010, accent:0x300505 },
+  mg_nest:  { name:'MG-42 Bunker', weapon:'Twin MG-42', hp:420, speed:0, dmg:8, fireMs:180, accuracy:0.55, range:140, isStatic:true, score:400, color:0xb02828, accent:0x601010 },
+  tank:     { name:'Panzer IV', weapon:'75mm KwK 40', hp:640, speed:0.8, dmg:35, fireMs:2500, accuracy:0.7, range:120, isVehicle:true, score:300, color:0xa83030, accent:0x701010 },
+  officer:  { name:'SS-Hauptsturmführer', weapon:'MP 40 + Luger', hp:720, speed:2.3, dmg:11, fireMs:380, accuracy:0.65, range:90, burst:4, score:600, color:0x801010, accent:0xc83030 }
 };
 
 // ============================================================
@@ -634,12 +635,19 @@ class FpsGame {
     scene = this.scene;
     camera = this.camera;
 
-    // Lighting
-    const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+    // Lighting — brighter, more cinematic
+    const ambient = new THREE.AmbientLight(0xb0c0d0, 0.55);
     this.scene.add(ambient);
-    const sun = new THREE.DirectionalLight(0xffffff, 0.9);
-    sun.position.set(8, 20, 5);
+    const sun = new THREE.DirectionalLight(0xfff5d8, 1.2);
+    sun.position.set(8, 24, 6);
     this.scene.add(sun);
+    // Hemisphere light for soft sky/ground bounce
+    const hemi = new THREE.HemisphereLight(0xb8d4f0, 0xb89878, 0.45);
+    this.scene.add(hemi);
+    // Rim light from behind for character separation
+    const rim = new THREE.DirectionalLight(0xffbb88, 0.35);
+    rim.position.set(-6, 12, -8);
+    this.scene.add(rim);
 
     // Build map
     this.obstacles = [];   // {mesh, x, z, r, type, blocks}
@@ -764,9 +772,9 @@ class FpsGame {
       ranger:     'Forward position — assault the bunkers',
       sniper:     'Right-click to scope · pick your shots',
       heavy:      'Belt-fed — Q to brace for ×2 damage',
-      pilot:      'P-47 inbound — WASD steer · click strafes',
+      pilot:      'Departing RAF Kenley, England — crossing the Channel to strafe German positions',
       tankdriver: 'Sherman ready — WASD drive · click 75mm',
-      captain:    'Easy Company is yours — Q to rally'
+      captain:    'Sailing from Portsmouth — Easy Company forms up on you'
     }[role.id] || 'Engage';
     this.toast(intro, 3000);
     this.drawGun();
@@ -1798,18 +1806,18 @@ class FpsGame {
 
   makeAllyMesh(x, y, z) {
     const g = new THREE.Group();
-    // legs
-    const legMat = new THREE.MeshLambertMaterial({ color: 0x4a6741 });
+    // legs — Allied BLUE
+    const legMat = new THREE.MeshLambertMaterial({ color: 0x3060a0 });
     const legs = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.9, 0.4), legMat);
     legs.position.y = 0.45; g.add(legs);
-    // body
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.0, 0.5), new THREE.MeshLambertMaterial({ color: 0x4a6741 }));
+    // body — blue uniform
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.0, 0.5), new THREE.MeshLambertMaterial({ color: 0x3060a0 }));
     body.position.y = 1.4; g.add(body);
     // head
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshLambertMaterial({ color: 0xc89878 }));
     head.position.y = 2.1; g.add(head);
-    // helmet (M1)
-    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8, 0, Math.PI*2, 0, Math.PI/2), new THREE.MeshLambertMaterial({ color: 0x5a6840 }));
+    // helmet (M1) — lighter blue
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8, 0, Math.PI*2, 0, Math.PI/2), new THREE.MeshLambertMaterial({ color: 0x5090d0 }));
     helmet.position.y = 2.32; helmet.scale.y = 0.6; g.add(helmet);
     // rifle
     const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 1.2), new THREE.MeshLambertMaterial({ color: 0x3a2a18 }));
