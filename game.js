@@ -6,7 +6,7 @@
    Touch: dual joysticks + fire button.
    ============================================================ */
 
-const BUILD_VERSION = 'v17 · fix';
+const BUILD_VERSION = 'v18 · cockpit';
 
 // ============================================================
 // PER-ROLE WEAPON SVGs  (overlay at the bottom of the screen)
@@ -164,13 +164,13 @@ const ROLES = {
     difficulty:3,
     blurb:'BAR automatic rifle. Hits hard, eats ammo.'
   },
-  pilot: { id:'pilot', name:'Pilot', fullName:'Lt. Frank Kowalski', unit:'9th Air Force · RAF Kenley, England', icon:'✈️',
+  pilot: { id:'pilot', name:'Pilot', fullName:'Lt. Frank Kowalski', unit:'9th Air Force · P-47 Thunderbolt', icon:'✈️',
     color:0x3060a0, accentHex:'#5090d0', colorHex:'#3060a0',
     hp:100,
     weapon:{ name:'8× .50 BMG', mag:200, reserve:0, fireMs:50, reloadMs:0, dmg:20, auto:true, spread:0.025, recoil:0.01, range:300 },
     ability:{ name:'Rocket Pod', key:'Q', cooldown:6000, desc:'Salvo of 6 unguided rockets' },
     difficulty:3,
-    blurb:'P-47 Thunderbolt from RAF Kenley. Crosses the Channel and strafes German positions.'
+    blurb:'P-47 Thunderbolt. Strafe German positions from the air. WASD fly, V toggles cockpit/chase camera.'
   },
   tankdriver: { id:'tankdriver', name:'Tank Driver', fullName:'Cpl. Frank Davis', unit:'743rd Tank Battalion · Sherman DD', icon:'🛡',
     color:0x3060a0, accentHex:'#5090d0', colorHex:'#3060a0',
@@ -180,13 +180,13 @@ const ROLES = {
     difficulty:2,
     blurb:'Sherman tank crew. Heavy armor, devastating 75mm gun. Lead the armored breach.'
   },
-  captain: { id:'captain', name:'Captain', fullName:'Cpt. Joseph Dawson', unit:'16th Infantry · Sailing from Portsmouth', icon:'⭐',
+  captain: { id:'captain', name:'Captain', fullName:'Cpt. Joseph Dawson', unit:'16th Infantry · Easy Company CO', icon:'⭐',
     color:0x3060a0, accentHex:'#ffd75a', colorHex:'#3060a0',
     hp:150,
     weapon:{ name:'M1A1 Carbine', mag:15, reserve:90, fireMs:200, reloadMs:2200, dmg:28, auto:false, spread:0.015, recoil:0.03, range:150 },
     ability:{ name:'Rally', key:'Q', cooldown:7000, desc:'5s allied accuracy ×2 + advance faster' },
     difficulty:2,
-    blurb:'Easy Company commander. Sails from Portsmouth with a double-strength squad.'
+    blurb:'Easy Company CO. Rides a landing craft to the beach, then leads a double-strength squad inland.'
   }
 };
 const ROLE_ORDER = ['rifleman','paratrooper','medic','ranger','sniper','heavy','pilot','tankdriver','captain'];
@@ -605,19 +605,23 @@ class FpsGame {
       this.paraInPlane = true;
       this.controlsLocked = true;
     } else if (role.id === 'pilot') {
-      // High altitude strafing run
-      spawnX = 0; spawnY = 32; spawnZ = 80;
+      // Start over the Channel, flying toward Normandy
+      spawnX = 0; spawnY = 35; spawnZ = 90;
       this.pilotMode = true;
-      this.pilotVZ = -22;   // constant forward velocity (negative Z = into the map)
-      this.pilotPitch = -0.15;
+      this.pilotPitch = -0.1;
       this.pilotRoll = 0;
+      this.pilotThirdPerson = false;  // toggle with V
+      this.planeMesh = this.makePilotPlane();
     } else if (role.id === 'tankdriver') {
       // Spawn already in a Sherman ready to drive
       this.tankDriverMode = true;
       spawnX = 0; spawnY = 3.0; spawnZ = 55;
     } else if (role.id === 'captain') {
       this.captainMode = true;
-      spawnZ = 55;
+      this.captainOnShip = true;
+      this.captainShipMesh = null;     // built in init
+      spawnX = 0; spawnY = 3.0; spawnZ = 130;  // start far out on the Channel
+      this.controlsLocked = true;       // ride the ship until landing
     } else if (role.id === 'ranger') {
       spawnZ = 35;  // closer to action — cliff assault feel
     }
@@ -772,9 +776,9 @@ class FpsGame {
       ranger:     'Forward position — assault the bunkers',
       sniper:     'Right-click to scope · pick your shots',
       heavy:      'Belt-fed — Q to brace for ×2 damage',
-      pilot:      'Departing RAF Kenley, England — crossing the Channel to strafe German positions',
+      pilot:      'P-47 inbound to Normandy — WASD fly · click strafes · V toggles cockpit/3rd person',
       tankdriver: 'Sherman ready — WASD drive · click 75mm',
-      captain:    'Sailing from Portsmouth — Easy Company forms up on you'
+      captain:    'On the landing craft — riding in toward Omaha Beach'
     }[role.id] || 'Engage';
     this.toast(intro, 3000);
     this.drawGun();
@@ -1187,64 +1191,178 @@ class FpsGame {
     this.toast('Chute open — landing behind enemy line', 2200);
   }
 
-  // Pilot mode update — fly the P-47
+  // Build a P-47 Thunderbolt mesh for the pilot
+  makePilotPlane() {
+    const g = new THREE.Group();
+    const olive = new THREE.MeshLambertMaterial({ color: 0x586848 });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x1a1008 });
+    const glass = new THREE.MeshLambertMaterial({ color: 0x1a2838 });
+    // Fuselage — long cigar
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.5, 8, 10), olive);
+    body.rotation.x = Math.PI/2; g.add(body);
+    // Wings
+    const wings = new THREE.Mesh(new THREE.BoxGeometry(12, 0.25, 1.6), olive);
+    wings.position.set(0, -0.1, 0.5); g.add(wings);
+    // Tail horizontal
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(3, 0.15, 0.8), olive);
+    tail.position.set(0, 0, -3.5); g.add(tail);
+    // Tail vertical
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 1.2), olive);
+    fin.position.set(0, 0.65, -3.5); g.add(fin);
+    // Cockpit canopy
+    const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 8, 0, Math.PI*2, 0, Math.PI/2), glass);
+    canopy.position.set(0, 0.55, 0.6); canopy.scale.z = 1.6;
+    g.add(canopy);
+    // Engine cowling
+    const cowl = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 1.2, 12), dark);
+    cowl.rotation.x = Math.PI/2; cowl.position.set(0, 0, 3.5); g.add(cowl);
+    // Propeller (will spin)
+    const propHub = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), dark);
+    propHub.position.set(0, 0, 4.2); g.add(propHub);
+    const propBlade = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.12, 0.05), dark);
+    propBlade.position.set(0, 0, 4.2); g.add(propBlade);
+    g.userData.prop = propBlade;
+    // White star on left wing
+    const star = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+    star.position.set(-3.5, 0.05, 0.5); star.rotation.x = -Math.PI/2;
+    g.add(star);
+    this.scene.add(g);
+    return g;
+  }
+
+  // Pilot mode update — fly the P-47 with proper FPS-flight controls
   updatePilot(dt) {
-    // Touch look used for pitch & roll
+    // Input
+    let pitchInput = 0, yawInput = 0;
+    if (keys['w'] || keys['arrowup'])    pitchInput += 1;  // climb
+    if (keys['s'] || keys['arrowdown'])  pitchInput -= 1;  // dive
+    if (keys['a'] || keys['arrowleft'])  yawInput -= 1;
+    if (keys['d'] || keys['arrowright']) yawInput += 1;
+    if (touchMove.active) { pitchInput -= touchMove.y; yawInput += touchMove.x; }
     if (touchLook.active) {
-      lookYaw   -= touchLook.x * dt * 1.2;
-      this.pilotPitch -= touchLook.y * dt * 0.8;
-      this.pilotPitch = clamp(this.pilotPitch, -0.5, 0.4);
+      lookYaw -= touchLook.x * dt * 1.5;
+      this.pilotPitch += -touchLook.y * dt * 1.0;
     }
-    // Pitch (W/S)
-    if (keys['w'] || keys['arrowup'])   this.pilotPitch -= 0.4 * dt;
-    if (keys['s'] || keys['arrowdown']) this.pilotPitch += 0.4 * dt;
-    this.pilotPitch = clamp(this.pilotPitch, -0.5, 0.4);
-    // Roll/yaw (A/D)
-    let rollTarget = 0;
-    if (keys['a'] || keys['arrowleft'])  { rollTarget += 0.6; lookYaw += 0.7 * dt; }
-    if (keys['d'] || keys['arrowright']) { rollTarget -= 0.6; lookYaw -= 0.7 * dt; }
-    this.pilotRoll = lerp(this.pilotRoll, rollTarget, Math.min(1, dt * 4));
-    // Forward velocity along yaw, with pitch contributing to Y
-    const forwardZ = this.pilotVZ;
-    const dx = Math.sin(lookYaw) * -forwardZ * dt;
-    const dz = Math.cos(lookYaw) * forwardZ * dt;
-    this.camera.position.x += dx;
-    this.camera.position.z += dz;
-    this.camera.position.y += -forwardZ * this.pilotPitch * dt * 0.6;
-    this.camera.position.y = clamp(this.camera.position.y, 12, 70);
-    // Wrap around map bounds — keep looping over the beach
-    if (this.camera.position.z < -100) this.camera.position.z = 100;
-    if (this.camera.position.z >  120) this.camera.position.z = -90;
-    if (this.camera.position.x >  100) this.camera.position.x = -90;
-    if (this.camera.position.x < -100) this.camera.position.x = 90;
-    // Apply rotations
+    // Apply pitch + yaw
+    this.pilotPitch += pitchInput * 0.7 * dt;
+    this.pilotPitch = clamp(this.pilotPitch, -0.5, 0.5);
+    lookYaw -= yawInput * 0.9 * dt;
+    // Visual roll
+    this.pilotRoll = lerp(this.pilotRoll, yawInput * -0.5, Math.min(1, dt * 5));
+
+    // Move forward in camera direction
+    const dir = new THREE.Vector3();
+    dir.set(0, 0, -1).applyEuler(new THREE.Euler(this.pilotPitch, lookYaw, 0, 'YXZ'));
+    const speed = 28;
+    this.camera.position.addScaledVector(dir, speed * dt);
+    // Clamp altitude
+    this.camera.position.y = clamp(this.camera.position.y, 14, 80);
+    // Wrap horizontally so you can keep looping over the battle
+    if (this.camera.position.x > 110)  this.camera.position.x = -110;
+    if (this.camera.position.x < -110) this.camera.position.x = 110;
+    if (this.camera.position.z > 130)  this.camera.position.z = -110;
+    if (this.camera.position.z < -120) this.camera.position.z = 130;
+
+    // Position the visible plane mesh
+    if (this.planeMesh) {
+      this.planeMesh.position.copy(this.camera.position);
+      this.planeMesh.rotation.set(0, lookYaw, 0);
+      this.planeMesh.rotateX(this.pilotPitch);
+      this.planeMesh.rotateZ(this.pilotRoll);
+      // Spin propeller
+      if (this.planeMesh.userData.prop) this.planeMesh.userData.prop.rotation.z += dt * 50;
+      // In FPV, hide the plane; in third-person, show it and offset camera back
+      this.planeMesh.visible = this.pilotThirdPerson;
+    }
+
+    // Apply camera rotation. In third person, offset camera back+up behind plane.
+    this.camera.rotation.order = 'YXZ';
     this.camera.rotation.y = lookYaw;
     this.camera.rotation.x = this.pilotPitch;
     this.camera.rotation.z = this.pilotRoll;
-    // Firing strafe
+    if (this.pilotThirdPerson && this.planeMesh) {
+      const back = new THREE.Vector3();
+      back.set(0, 0, 1).applyEuler(new THREE.Euler(this.pilotPitch, lookYaw, 0, 'YXZ'));
+      this.camera.position.addScaledVector(back, 9);
+      this.camera.position.y += 2.5;
+    }
+
+    // Firing strafe — auto fire while button held
     if ((mouseDown || touchLook.fire) && !this.reloading) {
       const now = this.time * 1000;
       const w = this.role.weapon;
       if (now - (this.lastFire || 0) > w.fireMs) {
         this.lastFire = now;
-        // Multi-bullet burst (8 guns)
-        const dir = new THREE.Vector3();
-        this.camera.getWorldDirection(dir);
-        const origin = this.camera.position.clone();
-        const ray = new THREE.Raycaster(origin, dir, 0, w.range);
+        const ray = new THREE.Raycaster(this.camera.position.clone(), dir.clone(), 0, w.range);
         const targets = this.enemies.filter(e=>!e.dead).map(e=>e.mesh);
         const hits = ray.intersectObjects(targets, true);
         if (hits.length > 0) {
           const e = this.enemies.find(en => en.mesh === hits[0].object || en.mesh.children.includes(hits[0].object));
           if (e && !e.dead) this.hitEnemy(e, w.dmg * 2);
         }
-        // Always draw tracer
-        this.spawnTracer(origin.clone().add(dir.clone().multiplyScalar(2)), origin.clone().add(dir.multiplyScalar(w.range)));
+        this.spawnTracer(this.camera.position.clone().add(dir.clone().multiplyScalar(2)),
+                         this.camera.position.clone().add(dir.clone().multiplyScalar(w.range)));
         this.muzzleFlash = 0.05;
       }
     }
     // Wave system still ticks
     this.tickWaves(dt);
+  }
+
+  // Captain mode — riding a landing craft toward the beach
+  updateCaptainShip(dt) {
+    // Build the LCT mesh on first tick
+    if (!this.captainShipMesh) {
+      const g = new THREE.Group();
+      const hullMat = new THREE.MeshLambertMaterial({ color: 0x3a4a3a });
+      const dark = new THREE.MeshLambertMaterial({ color: 0x1a1a18 });
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(8, 2.4, 18), hullMat);
+      hull.position.y = 1.2; g.add(hull);
+      const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.6, 16), hullMat);
+      sideL.position.set(-4.2, 2.6, 0); g.add(sideL);
+      const sideR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.6, 16), hullMat);
+      sideR.position.set( 4.2, 2.6, 0); g.add(sideR);
+      const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 1.5), dark);
+      cab.position.set(0, 3.5, 8); g.add(cab);
+      // Bow ramp
+      const ramp = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.3, 6), new THREE.MeshLambertMaterial({ color: 0x6a5028 }));
+      ramp.position.set(0, 0.6, -10);
+      ramp.rotation.x = -0.45;
+      g.add(ramp);
+      this.scene.add(g);
+      this.captainShipMesh = g;
+    }
+    // Ship moves forward toward beach
+    this.captainShipMesh.position.set(this.camera.position.x, 0, this.camera.position.z);
+    this.captainShipMesh.rotation.y = lookYaw;
+    // Bob
+    this.captainShipMesh.position.y = Math.sin(this.time * 1.2) * 0.2;
+    // Move ship + camera forward
+    const speed = 10;
+    this.camera.position.z -= speed * dt;
+    // Slight side wobble from waves
+    this.camera.position.x += Math.sin(this.time * 0.8) * 0.3 * dt;
+    this.camera.position.y = 3.0 + Math.sin(this.time * 1.4) * 0.15;
+    // Allow looking around
+    if (touchLook.active) {
+      lookYaw   -= touchLook.x * dt * 2.0;
+      lookPitch -= touchLook.y * dt * 1.6;
+      lookPitch = clamp(lookPitch, -Math.PI/2 + 0.05, Math.PI/2 - 0.05);
+    }
+    this.camera.rotation.y = lookYaw;
+    this.camera.rotation.x = lookPitch;
+    // When ship reaches surf (Z=70), captain disembarks
+    if (this.camera.position.z <= 70) {
+      this.captainOnShip = false;
+      this.controlsLocked = false;
+      this.camera.position.set(0, 1.7, 65);
+      // Remove the ship mesh
+      if (this.captainShipMesh) {
+        this.scene.remove(this.captainShipMesh);
+        this.captainShipMesh = null;
+      }
+      this.toast('On the beach! Push to the seawall!', 2500);
+    }
   }
 
   enterTank() {
@@ -1865,8 +1983,8 @@ class FpsGame {
   }
 
   spawnWave() {
-    const baseCount = 10 + this.wave * 3;  // tuned down for playability
-    const count = Math.round(baseCount * this.level.enemyCount * 0.65);
+    const baseCount = 6 + this.wave * 2;  // tuned for playability
+    const count = Math.round(baseCount * this.level.enemyCount * 0.5);
     for (let i=0; i<count; i++) {
       const type = this.pickEnemyType();
       const x = rand(-40, 40);
@@ -2152,6 +2270,13 @@ class FpsGame {
       }
       this.camera.rotation.y = lookYaw;
       this.camera.rotation.x = lookPitch;
+      return;
+    }
+
+    // Captain riding the landing craft toward the beach
+    if (this.captainOnShip) {
+      this.updateCaptainShip(dt);
+      this.tickWaves(dt);
       return;
     }
 
@@ -2784,6 +2909,13 @@ function onKeyDown(e) {
   if (k === 'enter') {
     e.preventDefault();
     if (fpsGame && fpsGame.paraInPlane) fpsGame.jumpFromPlane();
+  }
+  if (k === 'v') {
+    e.preventDefault();
+    if (fpsGame && fpsGame.pilotMode) {
+      fpsGame.pilotThirdPerson = !fpsGame.pilotThirdPerson;
+      fpsGame.toast(fpsGame.pilotThirdPerson ? 'Third-person camera (V)' : 'Cockpit view (V)', 1200);
+    }
   }
   if (k === 'escape') { /* pointer lock auto-releases */ }
 }
