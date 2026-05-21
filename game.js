@@ -6,7 +6,7 @@
    Touch: dual joysticks + fire button.
    ============================================================ */
 
-const BUILD_VERSION = 'v15 · roleplay';
+const BUILD_VERSION = 'v16 · breach';
 
 // ============================================================
 // PER-ROLE WEAPON SVGs  (overlay at the bottom of the screen)
@@ -163,9 +163,33 @@ const ROLES = {
     ability:{ name:'Brace', key:'Q', cooldown:7000, desc:'2s of double damage, less spread' },
     difficulty:3,
     blurb:'BAR automatic rifle. Hits hard, eats ammo.'
+  },
+  pilot: { id:'pilot', name:'Pilot', fullName:'Lt. Frank Kowalski', unit:'9th Air Force · P-47 Thunderbolt', icon:'✈️',
+    color:0x586848, accentHex:'#a8c060', colorHex:'#586848',
+    hp:90,
+    weapon:{ name:'8× .50 BMG', mag:200, reserve:0, fireMs:50, reloadMs:0, dmg:14, auto:true, spread:0.025, recoil:0.01, range:140 },
+    ability:{ name:'Rocket Pod', key:'Q', cooldown:6000, desc:'Salvo of 6 unguided rockets' },
+    difficulty:3,
+    blurb:'P-47 Thunderbolt at low altitude. Strafe enemy positions from the air.'
+  },
+  tankdriver: { id:'tankdriver', name:'Tank Driver', fullName:'Cpl. Frank Davis', unit:'743rd Tank Battalion · Sherman DD', icon:'🛡',
+    color:0x4a5a38, accentHex:'#7a9050', colorHex:'#4a5a38',
+    hp:200,
+    weapon:{ name:'75mm M3 + .30 cal', mag:30, reserve:120, fireMs:1100, reloadMs:1500, dmg:120, auto:false, spread:0.01, recoil:0.05, range:120 },
+    ability:{ name:'Smoke Round', key:'Q', cooldown:9000, desc:'Lay a smoke screen 30m ahead' },
+    difficulty:2,
+    blurb:'Sherman tank crew. Heavy armor, devastating 75mm gun. Lead the armored breach.'
+  },
+  captain: { id:'captain', name:'Captain', fullName:'Cpt. Joseph Dawson', unit:'16th Infantry · Easy Company CO', icon:'⭐',
+    color:0x5a4830, accentHex:'#c89040', colorHex:'#5a4830',
+    hp:120,
+    weapon:{ name:'M1A1 Carbine', mag:15, reserve:90, fireMs:200, reloadMs:2200, dmg:22, auto:false, spread:0.015, recoil:0.03, range:80 },
+    ability:{ name:'Rally', key:'Q', cooldown:7000, desc:'5s allied accuracy ×2 + advance faster' },
+    difficulty:2,
+    blurb:'Easy Company commander. Doubles starting squad + rally cry buffs allies.'
   }
 };
-const ROLE_ORDER = ['rifleman','paratrooper','medic','ranger','sniper','heavy'];
+const ROLE_ORDER = ['rifleman','paratrooper','medic','ranger','sniper','heavy','pilot','tankdriver','captain'];
 
 // ============================================================
 // CONFIG — LEVELS
@@ -238,15 +262,16 @@ const LEVELS = [
 // ENEMY TYPES
 // ============================================================
 
+// Germans wear feldgrau / blue-grey uniforms — clearly distinct from Allied olive drab.
 const ENEMY_TYPES = {
-  infantry: { name:'Wehrmacht Heer', weapon:'Mauser K98k', hp:55, speed:2.8, dmg:10, fireMs:1500, accuracy:0.45, range:55, score:15, color:0x5a5550, accent:0x7a7570 },
-  rifleman: { name:'Wehrmacht Grenadier', weapon:'Gewehr 43', hp:85, speed:2.5, dmg:14, fireMs:1100, accuracy:0.55, range:65, score:25, color:0x3a4a3a, accent:0x5a6850 },
-  mg:       { name:'MG-42 Gunner', weapon:'MG-42', hp:130, speed:1.0, dmg:7, fireMs:180, accuracy:0.5, range:80, burst:5, score:60, color:0x3a3a48, accent:0x5a5060 },
-  sniper:   { name:'Scharfschütze', weapon:'K98k w/ Zeiss', hp:60, speed:2.0, dmg:32, fireMs:1900, accuracy:0.85, range:120, score:70, color:0x5a4848, accent:0x7a6868 },
-  ss:       { name:'Waffen-SS', weapon:'MP 40', hp:100, speed:3.4, dmg:11, fireMs:350, accuracy:0.55, range:50, burst:3, score:50, color:0x2a2a30, accent:0x48485a },
-  mg_nest:  { name:'MG-42 Bunker', weapon:'Twin MG-42', hp:520, speed:0, dmg:11, fireMs:150, accuracy:0.65, range:100, isStatic:true, score:400, color:0x3a3030, accent:0x5a4848 },
-  tank:     { name:'Panzer IV', weapon:'75mm KwK 40', hp:760, speed:1.0, dmg:45, fireMs:2200, accuracy:0.8, range:80, isVehicle:true, score:300, color:0x4a4a3a, accent:0x6a6a4a },
-  officer:  { name:'SS-Hauptsturmführer', weapon:'MP 40 + Luger', hp:900, speed:2.6, dmg:14, fireMs:320, accuracy:0.75, range:55, burst:4, score:600, color:0x3a2840, accent:0x7a5860 }
+  infantry: { name:'Wehrmacht Heer', weapon:'Mauser K98k', hp:45, speed:2.5, dmg:7, fireMs:1700, accuracy:0.32, range:50, score:15, color:0x6a7080, accent:0x4a5060 },
+  rifleman: { name:'Wehrmacht Grenadier', weapon:'Gewehr 43', hp:70, speed:2.3, dmg:10, fireMs:1300, accuracy:0.42, range:60, score:25, color:0x6a7080, accent:0x4a5060 },
+  mg:       { name:'MG-42 Gunner', weapon:'MG-42', hp:110, speed:0.8, dmg:5, fireMs:220, accuracy:0.4, range:75, burst:5, score:60, color:0x5a6070, accent:0x3a4050 },
+  sniper:   { name:'Scharfschütze', weapon:'K98k w/ Zeiss', hp:50, speed:1.8, dmg:22, fireMs:2200, accuracy:0.75, range:110, score:70, color:0x7080a0, accent:0x405060 },
+  ss:       { name:'Waffen-SS', weapon:'MP 40', hp:85, speed:3.0, dmg:8, fireMs:420, accuracy:0.45, range:48, burst:3, score:50, color:0x404858, accent:0x202830 },
+  mg_nest:  { name:'MG-42 Bunker', weapon:'Twin MG-42', hp:420, speed:0, dmg:8, fireMs:180, accuracy:0.55, range:95, isStatic:true, score:400, color:0x6a6878, accent:0x404858 },
+  tank:     { name:'Panzer IV', weapon:'75mm KwK 40', hp:640, speed:0.8, dmg:35, fireMs:2500, accuracy:0.7, range:80, isVehicle:true, score:300, color:0x7a8090, accent:0x4a5060 },
+  officer:  { name:'SS-Hauptsturmführer', weapon:'MP 40 + Luger', hp:720, speed:2.3, dmg:11, fireMs:380, accuracy:0.65, range:55, burst:4, score:600, color:0x404858, accent:0x808898 }
 };
 
 // ============================================================
@@ -514,6 +539,15 @@ function startGameplay(){
       <div class="dday-enter-tank" id="dday-enter-tank">🛡 Press <kbd>E</kbd> to drive Sherman</div>
       <div class="dday-exit-tank" id="dday-exit-tank">🛡 <kbd>E</kbd> exit · click fires 75mm</div>
       <div class="dday-scope" id="dday-scope"></div>
+      <div class="dday-jump-prompt" id="dday-jump-prompt">
+        <h3>🪂 OVER THE DROP ZONE</h3>
+        <p>You are above the German rear lines. Press <kbd>ENTER</kbd> to jump.</p>
+      </div>
+      <div class="dday-objective" id="dday-objective">
+        <span>OBJECTIVE</span>
+        <p>Break through the German line — reach the seawall</p>
+        <div class="dday-objective-bar"><i id="dday-obj-bar"></i></div>
+      </div>
     </section>`;
   const canvas = document.getElementById('dday-canvas');
   fpsGame = new FpsGame(r, l, canvas);
@@ -559,14 +593,35 @@ class FpsGame {
     // Per-role spawn position
     let spawnX = 0, spawnY = 1.7, spawnZ = 60;
     this.paraDrop = false;
+    this.paraInPlane = false;       // sitting in C-47, waiting to jump
     this.controlsLocked = false;
+    this.pilotMode = false;
+    this.tankDriverMode = false;
+    this.captainMode = false;
     if (role.id === 'paratrooper') {
-      spawnX = rand(-20, 20); spawnY = 50; spawnZ = -25; // dropping behind enemy line!
-      this.paraDrop = true;
+      // Start in plane high above (Z=-80 = far behind German line). Press Enter to jump.
+      spawnX = rand(-15, 15); spawnY = 60; spawnZ = -80;
+      this.paraInPlane = true;
       this.controlsLocked = true;
+    } else if (role.id === 'pilot') {
+      // High altitude strafing run
+      spawnX = 0; spawnY = 32; spawnZ = 80;
+      this.pilotMode = true;
+      this.pilotVZ = -22;   // constant forward velocity (negative Z = into the map)
+      this.pilotPitch = -0.15;
+      this.pilotRoll = 0;
+    } else if (role.id === 'tankdriver') {
+      // Spawn already in a Sherman ready to drive
+      this.tankDriverMode = true;
+      spawnX = 0; spawnY = 3.0; spawnZ = 55;
+    } else if (role.id === 'captain') {
+      this.captainMode = true;
+      spawnZ = 55;
     } else if (role.id === 'ranger') {
       spawnZ = 35;  // closer to action — cliff assault feel
     }
+    // Whether the player starts on the friendly side (positive Z) → breach objective applies
+    this.spawnedOnFriendlySide = (spawnZ > 0);
     this.camera.position.set(spawnX, spawnY, spawnZ);
     this.camera.rotation.order = 'YXZ';
     lookYaw = Math.PI; // face -Z (into the beach)
@@ -683,14 +738,35 @@ class FpsGame {
     // Medic heal aura tick
     this._healAuraTimer = 0;
 
+    // Captain: spawn extra allies on top of standard wave
+    if (this.captainMode) {
+      for (let i=0; i<20; i++) {
+        const ally = this.makeAllyMesh(rand(-70,70), 0, 50 + rand(-15, 30));
+        this.allies.push(ally);
+      }
+      this.maxAllies = 90;
+    }
+
+    // Tank driver: spawn a dedicated Sherman and put player in it
+    if (this.tankDriverMode) {
+      this.makeAllyTank(0, 55);
+      const t = this._allyTanks[this._allyTanks.length - 1];
+      // Auto-enter
+      this.nearTank = t;
+      this.enterTank();
+    }
+
     // Initial toast
     const intro = {
       rifleman:   'Off the Higgins boat — push up the beach',
-      paratrooper:'Drop zone! Parachute open, you\'re behind the German line',
+      paratrooper:'Above the drop zone — press ENTER to jump',
       medic:      'Stay alive — your heal aura keeps allies up',
       ranger:     'Forward position — assault the bunkers',
       sniper:     'Right-click to scope · pick your shots',
-      heavy:      'Belt-fed — Q to brace for ×2 damage'
+      heavy:      'Belt-fed — Q to brace for ×2 damage',
+      pilot:      'P-47 inbound — WASD steer · click strafes',
+      tankdriver: 'Sherman ready — WASD drive · click 75mm',
+      captain:    'Easy Company is yours — Q to rally'
     }[role.id] || 'Engage';
     this.toast(intro, 3000);
     this.drawGun();
@@ -1077,6 +1153,90 @@ class FpsGame {
     if (!this._destroyers) this._destroyers = [];
     this._destroyers.push({ mesh: g, baseY: 0.5, phase: rand(0, Math.PI*2) });
     // Decorative only (no collision — too far away)
+  }
+
+  // Paratrooper: jump out of the plane on Enter
+  jumpFromPlane() {
+    if (!this.paraInPlane) return;
+    this.paraInPlane = false;
+    this.paraDrop = true;
+    const promptEl = document.getElementById('dday-jump-prompt');
+    if (promptEl) promptEl.classList.remove('show');
+    // Attach parachute mesh (build it now)
+    const white = new THREE.MeshLambertMaterial({ color: 0xeae0c8, side: THREE.DoubleSide });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x2a2018 });
+    const para = new THREE.Group();
+    const chute = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 8, 0, Math.PI*2, 0, Math.PI/2), white);
+    chute.position.y = 3.5; para.add(chute);
+    [[-2,-2],[2,-2],[-2,2],[2,2]].forEach(([sx,sz])=>{
+      const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 4, 4), dark);
+      rope.position.set(sx*0.4, 1.5, sz*0.4);
+      rope.rotation.z = Math.atan2(0 - sx, 4);
+      para.add(rope);
+    });
+    this.scene.add(para);
+    this.paraMesh = para;
+    this.toast('Chute open — landing behind enemy line', 2200);
+  }
+
+  // Pilot mode update — fly the P-47
+  updatePilot(dt) {
+    // Touch look used for pitch & roll
+    if (touchLook.active) {
+      lookYaw   -= touchLook.x * dt * 1.2;
+      this.pilotPitch -= touchLook.y * dt * 0.8;
+      this.pilotPitch = clamp(this.pilotPitch, -0.5, 0.4);
+    }
+    // Pitch (W/S)
+    if (keys['w'] || keys['arrowup'])   this.pilotPitch -= 0.4 * dt;
+    if (keys['s'] || keys['arrowdown']) this.pilotPitch += 0.4 * dt;
+    this.pilotPitch = clamp(this.pilotPitch, -0.5, 0.4);
+    // Roll/yaw (A/D)
+    let rollTarget = 0;
+    if (keys['a'] || keys['arrowleft'])  { rollTarget += 0.6; lookYaw += 0.7 * dt; }
+    if (keys['d'] || keys['arrowright']) { rollTarget -= 0.6; lookYaw -= 0.7 * dt; }
+    this.pilotRoll = lerp(this.pilotRoll, rollTarget, Math.min(1, dt * 4));
+    // Forward velocity along yaw, with pitch contributing to Y
+    const forwardZ = this.pilotVZ;
+    const dx = Math.sin(lookYaw) * -forwardZ * dt;
+    const dz = Math.cos(lookYaw) * forwardZ * dt;
+    this.camera.position.x += dx;
+    this.camera.position.z += dz;
+    this.camera.position.y += -forwardZ * this.pilotPitch * dt * 0.6;
+    this.camera.position.y = clamp(this.camera.position.y, 12, 70);
+    // Wrap around map bounds — keep looping over the beach
+    if (this.camera.position.z < -100) this.camera.position.z = 100;
+    if (this.camera.position.z >  120) this.camera.position.z = -90;
+    if (this.camera.position.x >  100) this.camera.position.x = -90;
+    if (this.camera.position.x < -100) this.camera.position.x = 90;
+    // Apply rotations
+    this.camera.rotation.y = lookYaw;
+    this.camera.rotation.x = this.pilotPitch;
+    this.camera.rotation.z = this.pilotRoll;
+    // Firing strafe
+    if ((mouseDown || touchLook.fire) && !this.reloading) {
+      const now = this.time * 1000;
+      const w = this.role.weapon;
+      if (now - (this.lastFire || 0) > w.fireMs) {
+        this.lastFire = now;
+        // Multi-bullet burst (8 guns)
+        const dir = new THREE.Vector3();
+        this.camera.getWorldDirection(dir);
+        const origin = this.camera.position.clone();
+        const ray = new THREE.Raycaster(origin, dir, 0, w.range);
+        const targets = this.enemies.filter(e=>!e.dead).map(e=>e.mesh);
+        const hits = ray.intersectObjects(targets, true);
+        if (hits.length > 0) {
+          const e = this.enemies.find(en => en.mesh === hits[0].object || en.mesh.children.includes(hits[0].object));
+          if (e && !e.dead) this.hitEnemy(e, w.dmg * 2);
+        }
+        // Always draw tracer
+        this.spawnTracer(origin.clone().add(dir.clone().multiplyScalar(2)), origin.clone().add(dir.multiplyScalar(w.range)));
+        this.muzzleFlash = 0.05;
+      }
+    }
+    // Wave system still ticks
+    this.tickWaves(dt);
   }
 
   enterTank() {
@@ -1667,9 +1827,38 @@ class FpsGame {
 
   // ---- ENEMIES ----
 
+  tickWaves(dt) {
+    if (this.state === 'pre-wave') {
+      this.waveTimer -= dt;
+      if (this.waveTimer <= 0) this.spawnWave();
+    } else if (this.state === 'wave') {
+      const alive = this.enemies.filter(e=>!e.dead).length;
+      if (alive === 0) {
+        if (this.wave >= this.level.waves) {
+          this.state = 'pre-boss';
+          this.waveTimer = 2.0;
+          this.toast('All waves clear', 1500);
+          this.showIntelFact();
+        } else {
+          this.state = 'pre-wave';
+          this.wave++;
+          this.waveTimer = 2.5;
+          this.showIntelFact();
+          const wel = document.getElementById('hud-wave');
+          if (wel) wel.textContent = this.wave;
+        }
+      }
+    } else if (this.state === 'pre-boss') {
+      this.waveTimer -= dt;
+      if (this.waveTimer <= 0) this.spawnBoss();
+    } else if (this.state === 'boss') {
+      if (!this.boss || this.boss.dead) { this.win(); return; }
+    }
+  }
+
   spawnWave() {
-    const baseCount = 18 + this.wave * 6;  // massive — was 8 + 3*wave
-    const count = Math.round(baseCount * this.level.enemyCount);
+    const baseCount = 10 + this.wave * 3;  // tuned down for playability
+    const count = Math.round(baseCount * this.level.enemyCount * 0.65);
     for (let i=0; i<count; i++) {
       const type = this.pickEnemyType();
       const x = rand(-40, 40);
@@ -1940,6 +2129,30 @@ class FpsGame {
   update(dt) {
     this.time += dt;
 
+    // Paratrooper waiting in the C-47 — press ENTER to jump
+    if (this.paraInPlane) {
+      // Camera drifts forward like flying in a plane, slight side-to-side
+      this.camera.position.x += Math.sin(this.time * 0.5) * 0.2;
+      // Show the prompt
+      const promptEl = document.getElementById('dday-jump-prompt');
+      if (promptEl) promptEl.classList.add('show');
+      // Allow touch look
+      if (touchLook.active) {
+        lookYaw   -= touchLook.x * dt * 2.2;
+        lookPitch -= touchLook.y * dt * 1.8;
+        lookPitch = clamp(lookPitch, -Math.PI/2 + 0.05, Math.PI/2 - 0.05);
+      }
+      this.camera.rotation.y = lookYaw;
+      this.camera.rotation.x = lookPitch;
+      return;
+    }
+
+    // Pilot mode: dedicated flight loop
+    if (this.pilotMode) {
+      this.updatePilot(dt);
+      return;
+    }
+
     // Paratrooper descent intro
     if (this.paraDrop) {
       this.camera.position.y -= 6 * dt;
@@ -2089,32 +2302,25 @@ class FpsGame {
     if (this.muzzleFlash > 0) this.muzzleFlash -= dt;
     if (this.gunRecoil > 0) this.gunRecoil = Math.max(0, this.gunRecoil - dt * 1.5);
 
-    // Wave system
-    if (this.state === 'pre-wave') {
-      this.waveTimer -= dt;
-      if (this.waveTimer <= 0) this.spawnWave();
-    } else if (this.state === 'wave') {
-      const alive = this.enemies.filter(e=>!e.dead).length;
-      if (alive === 0) {
-        if (this.wave >= this.level.waves) {
-          this.state = 'pre-boss';
-          this.waveTimer = 2.0;
-          this.toast('All waves clear', 1500);
-          this.showIntelFact();
-        } else {
-          this.state = 'pre-wave';
-          this.wave++;
-          this.waveTimer = 2.5;
-          this.showIntelFact();
-          const wel = document.getElementById('hud-wave');
-          if (wel) wel.textContent = this.wave;
-        }
+    // Wave state machine
+    this.tickWaves(dt);
+
+    // BREACH objective: progress bar + win condition (reach Z=-50)
+    // Only applies to roles that start on the friendly side
+    const z = this.camera.position.z;
+    if (this.spawnedOnFriendlySide) {
+      const progress = clamp((60 - z) / (60 - (-50)), 0, 1);
+      const obj = document.getElementById('dday-obj-bar');
+      if (obj) obj.style.width = (progress * 100) + '%';
+      if (z < -50 && !this.over && !this.pilotMode) {
+        this.toast('THE LINE IS BREACHED!', 2500);
+        this.win();
+        return;
       }
-    } else if (this.state === 'pre-boss') {
-      this.waveTimer -= dt;
-      if (this.waveTimer <= 0) this.spawnBoss();
-    } else if (this.state === 'boss') {
-      if (!this.boss || this.boss.dead) { this.win(); return; }
+    } else {
+      // Paratrooper / pilot: hide the breach UI
+      const objCard = document.getElementById('dday-objective');
+      if (objCard) objCard.style.display = 'none';
     }
 
     // Update enemies
@@ -2566,6 +2772,10 @@ function onKeyDown(e) {
       if (fpsGame.inTank) fpsGame.exitTank();
       else if (fpsGame.nearTank) fpsGame.enterTank();
     }
+  }
+  if (k === 'enter') {
+    e.preventDefault();
+    if (fpsGame && fpsGame.paraInPlane) fpsGame.jumpFromPlane();
   }
   if (k === 'escape') { /* pointer lock auto-releases */ }
 }

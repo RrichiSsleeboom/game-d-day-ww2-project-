@@ -3043,3 +3043,65 @@ html, body { height: 100%; overscroll-behavior: none; }
 }
 .dday-scope::before { width: 1px; height: 30%; transform: translate(-50%, -50%); }
 .dday-scope::after { width: 30%; height: 1px; transform: translate(-50%, -50%); }
+
+/* v16 — jump prompt + objective bar */
+.dday-jump-prompt {
+  position: absolute;
+  top: 35%; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.78);
+  border: 3px solid #d4a13a;
+  color: #fff;
+  text-align: center;
+  padding: 1.5rem 2rem;
+  border-radius: 12px;
+  z-index: 12;
+  pointer-events: none;
+  display: none;
+  box-shadow: 0 0 40px rgba(212, 161, 58, 0.45);
+}
+.dday-jump-prompt.show { display: block; animation: ddayPulseScale 1.2s ease infinite; }
+.dday-jump-prompt h3 { font-size: 1.5rem; color: #d4a13a; letter-spacing: 0.15em; margin-bottom: 0.5rem; }
+.dday-jump-prompt p { color: #d8c8a0; font-size: 0.95rem; }
+.dday-jump-prompt kbd {
+  background: #d4a13a; color: #1a1008;
+  padding: 0.15rem 0.55rem; border-radius: 4px;
+  font-family: monospace; font-weight: 900; letter-spacing: 0.1em;
+}
+
+.dday-objective {
+  position: absolute;
+  bottom: 9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(360px, 70%);
+  background: rgba(0,0,0,0.6);
+  border: 2px solid rgba(212, 161, 58, 0.5);
+  border-radius: 8px;
+  padding: 0.5rem 0.8rem;
+  color: #fff;
+  text-align: center;
+  z-index: 6;
+  pointer-events: none;
+}
+.dday-objective span {
+  display: block;
+  font-size: 0.6rem;
+  letter-spacing: 0.4em;
+  color: #d4a13a;
+  margin-bottom: 0.15rem;
+}
+.dday-objective p { font-size: 0.85rem; margin-bottom: 0.35rem; }
+.dday-objective-bar {
+  height: 6px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.dday-objective-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #c83040, #d4a13a, #80c060);
+  width: 0%;
+  transition: width 0.2s linear;
+}
