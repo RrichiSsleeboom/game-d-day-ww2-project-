@@ -6,7 +6,7 @@
    Touch: dual joysticks + fire button.
    ============================================================ */
 
-const BUILD_VERSION = 'v18 · cockpit';
+const BUILD_VERSION = 'v19 · clarity';
 
 // ============================================================
 // PER-ROLE WEAPON SVGs  (overlay at the bottom of the screen)
@@ -263,16 +263,16 @@ const LEVELS = [
 // ============================================================
 
 // Germans wear bold red uniforms in this stylised version — instantly visible against
-// the blue-uniformed Allies. (Historically feldgrau, but the user wants clear teams.)
+// the blue-uniformed Allies. Stats tuned forgiving so the game is winnable.
 const ENEMY_TYPES = {
-  infantry: { name:'Wehrmacht Heer', weapon:'Mauser K98k', hp:45, speed:2.5, dmg:7, fireMs:1700, accuracy:0.32, range:80, score:15, color:0xc83030, accent:0x801818 },
-  rifleman: { name:'Wehrmacht Grenadier', weapon:'Gewehr 43', hp:70, speed:2.3, dmg:10, fireMs:1300, accuracy:0.42, range:100, score:25, color:0xc83030, accent:0x801818 },
-  mg:       { name:'MG-42 Gunner', weapon:'MG-42', hp:110, speed:0.8, dmg:5, fireMs:220, accuracy:0.4, range:120, burst:5, score:60, color:0xb02020, accent:0x701010 },
-  sniper:   { name:'Scharfschütze', weapon:'K98k w/ Zeiss', hp:50, speed:1.8, dmg:22, fireMs:2200, accuracy:0.75, range:200, score:70, color:0xc83030, accent:0x801818 },
-  ss:       { name:'Waffen-SS', weapon:'MP 40', hp:85, speed:3.0, dmg:8, fireMs:420, accuracy:0.45, range:80, burst:3, score:50, color:0x801010, accent:0x300505 },
-  mg_nest:  { name:'MG-42 Bunker', weapon:'Twin MG-42', hp:420, speed:0, dmg:8, fireMs:180, accuracy:0.55, range:140, isStatic:true, score:400, color:0xb02828, accent:0x601010 },
-  tank:     { name:'Panzer IV', weapon:'75mm KwK 40', hp:640, speed:0.8, dmg:35, fireMs:2500, accuracy:0.7, range:120, isVehicle:true, score:300, color:0xa83030, accent:0x701010 },
-  officer:  { name:'SS-Hauptsturmführer', weapon:'MP 40 + Luger', hp:720, speed:2.3, dmg:11, fireMs:380, accuracy:0.65, range:90, burst:4, score:600, color:0x801010, accent:0xc83030 }
+  infantry: { name:'Wehrmacht Heer', weapon:'Mauser K98k', hp:35, speed:2.0, dmg:4, fireMs:2400, accuracy:0.22, range:80, score:15, color:0xc83030, accent:0x801818 },
+  rifleman: { name:'Wehrmacht Grenadier', weapon:'Gewehr 43', hp:55, speed:1.9, dmg:6, fireMs:1800, accuracy:0.30, range:100, score:25, color:0xc83030, accent:0x801818 },
+  mg:       { name:'MG-42 Gunner', weapon:'MG-42', hp:90, speed:0.7, dmg:3, fireMs:320, accuracy:0.28, range:110, burst:4, score:60, color:0xb02020, accent:0x701010 },
+  sniper:   { name:'Scharfschütze', weapon:'K98k w/ Zeiss', hp:45, speed:1.5, dmg:14, fireMs:2800, accuracy:0.55, range:200, score:70, color:0xc83030, accent:0x801818 },
+  ss:       { name:'Waffen-SS', weapon:'MP 40', hp:70, speed:2.5, dmg:5, fireMs:550, accuracy:0.32, range:80, burst:3, score:50, color:0x801010, accent:0x300505 },
+  mg_nest:  { name:'MG-42 Bunker', weapon:'Twin MG-42', hp:340, speed:0, dmg:5, fireMs:260, accuracy:0.4, range:130, isStatic:true, score:400, color:0xb02828, accent:0x601010 },
+  tank:     { name:'Panzer IV', weapon:'75mm KwK 40', hp:520, speed:0.7, dmg:22, fireMs:3200, accuracy:0.5, range:120, isVehicle:true, score:300, color:0xa83030, accent:0x701010 },
+  officer:  { name:'SS-Hauptsturmführer', weapon:'MP 40 + Luger', hp:580, speed:2.0, dmg:7, fireMs:500, accuracy:0.5, range:90, burst:3, score:600, color:0x801010, accent:0xc83030 }
 };
 
 // ============================================================
@@ -548,6 +548,11 @@ function startGameplay(){
         <span>OBJECTIVE</span>
         <p>Break through the German line — reach the seawall</p>
         <div class="dday-objective-bar"><i id="dday-obj-bar"></i></div>
+      </div>
+      <div class="dday-controls-hint">
+        <kbd>WASD</kbd> move · <kbd>Mouse</kbd> aim<br>
+        <kbd>Click</kbd> shoot · <kbd>R</kbd> reload · <kbd>Q</kbd> ability<br>
+        <kbd>E</kbd> tank · <kbd>V</kbd> camera (pilot)
       </div>
     </section>`;
   const canvas = document.getElementById('dday-canvas');
@@ -1983,8 +1988,8 @@ class FpsGame {
   }
 
   spawnWave() {
-    const baseCount = 6 + this.wave * 2;  // tuned for playability
-    const count = Math.round(baseCount * this.level.enemyCount * 0.5);
+    const baseCount = 4 + this.wave * 1;  // very forgiving
+    const count = Math.round(baseCount * this.level.enemyCount * 0.45);
     for (let i=0; i<count; i++) {
       const type = this.pickEnemyType();
       const x = rand(-40, 40);
@@ -2246,8 +2251,17 @@ class FpsGame {
     this.hp = Math.max(0, this.hp - dmg);
     this.flashHit = 0.18;
     this.shake = Math.min(0.3, this.shake + 0.08);
+    this.lastDamageTime = this.time;  // for regen cooldown
     this.updateHpHUD();
     if (this.hp <= 0) this.lose();
+  }
+
+  // Slow regen after 3s without damage — keeps the game forgiving
+  tickRegen(dt) {
+    if (this.hp >= this.maxHp || this.hp <= 0) return;
+    if (this.time - (this.lastDamageTime || 0) < 3) return;
+    this.hp = Math.min(this.maxHp, this.hp + 12 * dt);
+    this.updateHpHUD();
   }
 
   // ---- UPDATE ----
@@ -2435,8 +2449,9 @@ class FpsGame {
     if (this.muzzleFlash > 0) this.muzzleFlash -= dt;
     if (this.gunRecoil > 0) this.gunRecoil = Math.max(0, this.gunRecoil - dt * 1.5);
 
-    // Wave state machine
+    // Wave state machine + HP regen
     this.tickWaves(dt);
+    this.tickRegen(dt);
 
     // BREACH objective: progress bar + win condition (reach Z=-50)
     // Only applies to roles that start on the friendly side

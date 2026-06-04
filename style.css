@@ -3105,3 +3105,81 @@ html, body { height: 100%; overscroll-behavior: none; }
   width: 0%;
   transition: width 0.2s linear;
 }
+
+/* v19 — clearer, bigger UI */
+
+/* Bigger, more visible crosshair */
+.dday-fps-crosshair {
+  width: 32px; height: 32px;
+  margin: -16px 0 0 -16px;
+}
+.dday-fps-crosshair::before { height: 2px; }
+.dday-fps-crosshair::after  { width: 2px; }
+.dday-fps-crosshair::before, .dday-fps-crosshair::after {
+  background: rgba(255, 255, 100, 0.95);
+  box-shadow: 0 0 6px rgba(255, 235, 100, 0.95), 0 0 2px rgba(0,0,0,0.9);
+}
+
+/* HUD top bar — larger fonts */
+.dday-hud-top {
+  padding: 1rem;
+  gap: 0.8rem;
+}
+.dday-hud-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.3em;
+}
+.dday-hud-hp-text { font-size: 1.05rem; }
+.dday-hud-wave b, .dday-hud-score-val b { font-size: 1.6rem; }
+.dday-hud-hp { height: 14px; }
+
+/* Bigger ammo numbers */
+.dday-hud-ammo-mag b { font-size: 2.4rem; }
+.dday-hud-ammo-mag span { font-size: 1rem; }
+
+/* Bigger, bolder objective card */
+.dday-objective {
+  width: min(440px, 80%);
+  padding: 0.8rem 1.2rem;
+  bottom: 11rem;
+  background: rgba(0,0,0,0.78);
+  border-width: 3px;
+}
+.dday-objective span { font-size: 0.75rem; letter-spacing: 0.45em; margin-bottom: 0.3rem; }
+.dday-objective p { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
+.dday-objective-bar { height: 10px; }
+
+/* Big controls cheat-sheet bottom-left */
+.dday-controls-hint {
+  position: absolute;
+  bottom: 11rem;
+  left: 1rem;
+  background: rgba(0,0,0,0.55);
+  border: 2px solid rgba(255,255,255,0.18);
+  border-radius: 8px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.78rem;
+  color: #fff;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  z-index: 5;
+  line-height: 1.7;
+}
+.dday-controls-hint kbd {
+  background: rgba(212, 161, 58, 0.85);
+  color: #1a1008;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  font-family: monospace;
+  font-weight: 900;
+  font-size: 0.7rem;
+}
+@media (max-width: 600px) {
+  .dday-controls-hint { display: none; }
+}
+
+/* Intel cards — move out of the way, smaller */
+.dday-intel { top: 10rem; width: min(260px, 70%); }
+.dday-intel-card { padding: 0.55rem 0.75rem; }
+.dday-intel-card b { font-size: 0.85rem; }
+.dday-intel-card p { font-size: 0.74rem; }
