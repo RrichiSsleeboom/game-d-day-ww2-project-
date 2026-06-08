@@ -6,7 +6,7 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
-const BUILD_VERSION = 'v21 · manual aim';
+const BUILD_VERSION = 'v22 · 3D';
 console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;font-weight:bold');
 
 (function () {
@@ -528,7 +528,10 @@ function startGameplay() {
   `;
 
   canvas = document.getElementById('dday-canvas');
-  ctx = canvas.getContext('2d');
+  if (!window.THREE) {
+    canvas.outerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem;text-align:center;padding:2rem">3D engine (Three.js) failed to load.<br>Check your internet and refresh.</div>';
+    return;
+  }
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 
@@ -544,7 +547,21 @@ function startGameplay() {
 }
 
 function resizeCanvas() {
-  if (!canvas) return;
+  if (!canvas || !game || !game.renderer) {
+    if (canvas) {
+      canvas.width = window.innerWidth * (window.devicePixelRatio || 1);
+      canvas.height = window.innerHeight * (window.devicePixelRatio || 1);
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+    }
+    return;
+  }
+  game.renderer.setSize(window.innerWidth, window.innerHeight);
+  if (game.camera) {
+    game.camera.aspect = window.innerWidth / window.innerHeight;
+    game.camera.updateProjectionMatrix();
+  }
+  return;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = window.innerWidth * dpr;
   canvas.height = window.innerHeight * dpr;
@@ -559,7 +576,7 @@ function loop(now) {
   lastFrame = now;
   if (game && !game.paused) {
     game.update(dt);
-    game.render(ctx);
+    game.render();
   }
   gameLoopId = requestAnimationFrame(loop);
 }
@@ -572,6 +589,8 @@ class Game {
   constructor(role, level) {
     this.role = role;
     this.level = level;
+    // World coordinates use the same 2D w/h grid as v21 (so gameplay logic is untouched);
+    // we then render those positions in 3D via Three.js.
     this.w = window.innerWidth;
     this.h = window.innerHeight;
     this.paused = false;
@@ -580,19 +599,56 @@ class Game {
     this.shakeMag = 0;
     this.time = 0;
 
+    // --- Three.js scene ---
+    const palette = this.level.palette;
+    const skyColor = 0xa8b8c8;
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(skyColor);
+    this.scene.fog = new THREE.Fog(skyColor, 600, 1800);
+
+    this.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 4000);
+    this.camera.position.set(this.w / 2, 600, this.h * 0.78 + 350);
+
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+    // Lighting
+    this.scene.add(new THREE.AmbientLight(0xb8c8d8, 0.55));
+    const sun = new THREE.DirectionalLight(0xfff5d8, 1.1);
+    sun.position.set(400, 800, 200);
+    this.scene.add(sun);
+    this.scene.add(new THREE.HemisphereLight(0xb0c8e0, 0xb89878, 0.4));
+
+    // Ground plane spanning the playfield
+    const groundMat = new THREE.MeshLambertMaterial({ color: this.parseColor(palette.sand) });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(this.w * 2, this.h * 2), groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(this.w / 2, 0, this.h / 2);
+    this.scene.add(ground);
+    this.groundMesh = ground;
+
+    // Level-specific decor (water band etc.)
+    this.buildLevelDecor();
+
+    this.raycaster = new THREE.Raycaster();
+    this.tmpVec2 = new THREE.Vector2();
+
     this.player = new Player(this.w / 2, this.h * 0.78, role);
+    this.player.attachMesh(this.scene);
     this.enemies = [];
     this.bullets = [];
     this.particles = [];
     this.pickups = [];
-    this.floats = []; // floating damage numbers
+    this.floats = [];
     this.obstacles = this.makeObstacles();
+    for (const o of this.obstacles) this.attachObstacleMesh(o);
 
     this.wave = 1;
     this.score = 0;
     this.kills = 0;
     this.waveAlive = 0;
-    this.waveTimer = 1.5; // intro pause before first wave
+    this.waveTimer = 1.5;
     this.bossSpawned = false;
     this.boss = null;
     this.state = 'pre-wave';
@@ -602,6 +658,78 @@ class Game {
     this.abilityActive = 0;
 
     this.toast('Wave 1 incoming…', 1500);
+  }
+
+  parseColor(s) {
+    // Convert "#rrggbb" to 0xrrggbb
+    if (typeof s === 'string' && s.startsWith('#')) return parseInt(s.slice(1), 16);
+    return s;
+  }
+
+  buildLevelDecor() {
+    const pal = this.level.palette;
+    const t = this.level.terrain;
+    if (t === 'beach') {
+      // Water band at the bottom of the playfield (high Y in our world coords)
+      const water = new THREE.Mesh(
+        new THREE.PlaneGeometry(this.w * 2, 600),
+        new THREE.MeshLambertMaterial({ color: this.parseColor(pal.water) })
+      );
+      water.rotation.x = -Math.PI / 2;
+      water.position.set(this.w / 2, 0.4, this.h + 250);
+      this.scene.add(water);
+    }
+  }
+
+  attachObstacleMesh(o) {
+    let mat, mesh;
+    if (o.type === 'hedgehog') {
+      const g = new THREE.Group();
+      const m = new THREE.MeshLambertMaterial({ color: 0x2a1a0e });
+      const beam = new THREE.BoxGeometry(o.r * 0.25, o.r * 0.25, o.r * 2.4);
+      const b1 = new THREE.Mesh(beam, m); b1.rotation.set(0, Math.PI/4, Math.PI/4); g.add(b1);
+      const b2 = new THREE.Mesh(beam, m); b2.rotation.set(0, -Math.PI/4, Math.PI/4); g.add(b2);
+      const b3 = new THREE.Mesh(beam, m); b3.rotation.set(Math.PI/2, 0, 0); g.add(b3);
+      mesh = g;
+    } else if (o.type === 'sandbag') {
+      const g = new THREE.Group();
+      const m = new THREE.MeshLambertMaterial({ color: 0xa89070 });
+      for (let i = 0; i < 3; i++) {
+        const bag = new THREE.Mesh(new THREE.BoxGeometry(o.r * 1.7, o.r * 0.4, o.r * 0.8), m);
+        bag.position.y = o.r * 0.2 + i * o.r * 0.4;
+        bag.position.x = (i % 2) * o.r * 0.15;
+        g.add(bag);
+      }
+      mesh = g;
+    } else if (o.type === 'bush') {
+      mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(o.r * 1.1, 12, 8),
+        new THREE.MeshLambertMaterial({ color: this.parseColor(this.level.palette.foliage) })
+      );
+      mesh.position.y = o.r * 0.6;
+    } else if (o.type === 'rock') {
+      mesh = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(o.r, 0),
+        new THREE.MeshLambertMaterial({ color: this.parseColor(this.level.palette.stone) })
+      );
+      mesh.position.y = o.r * 0.5;
+    } else if (o.type === 'wall') {
+      mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(o.r * 2, o.r * 1.6, o.r * 1.4),
+        new THREE.MeshLambertMaterial({ color: this.parseColor(this.level.palette.stone) })
+      );
+      mesh.position.y = o.r * 0.8;
+    } else {
+      mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(o.r * 1.6, o.r * 1.6, o.r * 1.6),
+        new THREE.MeshLambertMaterial({ color: 0x808080 })
+      );
+      mesh.position.y = o.r * 0.8;
+    }
+    mesh.position.x = o.x;
+    mesh.position.z = o.y;
+    this.scene.add(mesh);
+    o.mesh = mesh;
   }
 
   toast(msg, dur) {
@@ -967,24 +1095,42 @@ class Game {
 
   // ---- RENDER ----
   render(ctx) {
-    const W = this.w, H = this.h;
-    let sx = 0, sy = 0;
+    // Sync entity positions to their 3D meshes
+    this.player.syncMesh(this);
+    for (const e of this.enemies) e.syncMesh(this.scene);
+    for (const b of this.bullets) b.syncMesh(this.scene);
+    for (const p of this.particles) p.syncMesh(this.scene);
+    for (const pk of this.pickups) this.syncPickupMesh(pk);
+    // Camera follows player with angled top-down view (brawl-stars style)
+    const px = this.player.x, py = this.player.y;
+    let shakeX = 0, shakeZ = 0;
     if (this.shake > 0) {
-      sx = rand(-this.shakeMag, this.shakeMag);
-      sy = rand(-this.shakeMag, this.shakeMag);
+      shakeX = rand(-this.shakeMag, this.shakeMag);
+      shakeZ = rand(-this.shakeMag, this.shakeMag);
     }
-    ctx.save();
-    ctx.translate(sx, sy);
-    this.drawTerrain(ctx);
-    this.drawObstacles(ctx);
+    const camHeight = 540;
+    const camPullback = 240;
+    this.camera.position.x = lerp(this.camera.position.x, px + shakeX, 0.18);
+    this.camera.position.y = camHeight;
+    this.camera.position.z = lerp(this.camera.position.z, py + camPullback + shakeZ, 0.18);
+    this.camera.lookAt(px, 0, py);
+    // Render
+    this.renderer.render(this.scene, this.camera);
+    // 2D HUD overlay: floating damage numbers go through HTML toast / hud; skip canvas draw
+  }
 
-    for (const p of this.pickups) this.drawPickup(ctx, p);
-    for (const b of this.bullets) b.render(ctx);
-    for (const e of this.enemies) e.render(ctx);
-    this.player.render(ctx, this);
-    for (const p of this.particles) p.render(ctx);
-    for (const f of this.floats) this.drawFloat(ctx, f);
-    ctx.restore();
+  syncPickupMesh(p) {
+    if (!p.mesh) {
+      const mat = new THREE.MeshLambertMaterial({ color: p.type === 'medkit' ? 0xf8e8d8 : 0xc89040 });
+      p.mesh = new THREE.Mesh(new THREE.BoxGeometry(14, 10, 14), mat);
+      this.scene.add(p.mesh);
+    }
+    if (p.taken) {
+      this.scene.remove(p.mesh);
+      return;
+    }
+    p.mesh.position.set(p.x, 8 + Math.sin((p.bob || 0) * 3) * 3, p.y);
+    p.mesh.rotation.y = (p.bob || 0);
   }
 
   drawFloat(ctx, f) {
@@ -1152,6 +1298,57 @@ class Player {
     this.hitFlash = 0;
     this.iframes = 0;
     this.step = 0;
+    this.mesh = null;
+  }
+  attachMesh(scene) {
+    const g = new THREE.Group();
+    const r = this.role;
+    const colorHex = r.color || r.colorHex || '#3060a0';
+    const accentHex = r.accent || r.accentHex || '#5090d0';
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(this.r * 0.9, this.r * 0.9, 28, 14),
+      new THREE.MeshLambertMaterial({ color: parseInt((colorHex+'').replace('#',''), 16) })
+    );
+    body.position.y = 14; g.add(body);
+    // Helmet
+    const helmet = new THREE.Mesh(
+      new THREE.SphereGeometry(this.r * 0.75, 14, 8, 0, Math.PI*2, 0, Math.PI/2),
+      new THREE.MeshLambertMaterial({ color: parseInt((accentHex+'').replace('#',''), 16) })
+    );
+    helmet.position.y = 28; helmet.scale.y = 0.6; g.add(helmet);
+    // Gun pointing forward (will rotate with body)
+    const gun = new THREE.Mesh(
+      new THREE.BoxGeometry(6, 6, 36),
+      new THREE.MeshLambertMaterial({ color: 0x2a1a08 })
+    );
+    gun.position.set(0, 18, -20); g.add(gun);
+    // Drop shadow disc
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(this.r * 1.1, 16),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 })
+    );
+    shadow.rotation.x = -Math.PI/2;
+    shadow.position.y = 0.2; g.add(shadow);
+    scene.add(g);
+    this.mesh = g;
+    this.attachedScene = scene;
+    return this;
+  }
+  syncMesh(game) {
+    if (!this.mesh) return;
+    this.mesh.position.set(this.x, 0, this.y);
+    // Convert 2D facing angle to Y rotation
+    this.mesh.rotation.y = -this.facing - Math.PI/2;
+    // Walk bob
+    this.mesh.position.y = Math.abs(Math.sin(this.step)) * 2;
+    // I-frame visual
+    if (this.iframes > 0) {
+      this.mesh.children[0].material.opacity = 0.5 + Math.sin(game.time * 30) * 0.3;
+      this.mesh.children[0].material.transparent = true;
+    } else if (this.mesh.children[0].material.transparent) {
+      this.mesh.children[0].material.opacity = 1;
+      this.mesh.children[0].material.transparent = false;
+    }
   }
   update(dt, game) {
     let dx = 0, dy = 0;
@@ -1264,6 +1461,8 @@ class Enemy {
     this.lastShot = 0;
     this.facing = Math.PI / 2;
     this.step = 0;
+    this.mesh = null;
+    this.attachedScene = null;
 
     const t = TYPES[type] || TYPES.infantry;
     this.hp = Math.max(1, t.hp * (hpMul || 1));
@@ -1283,6 +1482,64 @@ class Enemy {
       this.color = t.bossColor || t.color;
       this.speed *= 0.6;
       this.damage *= 1.2;
+    }
+  }
+  ensureMesh(scene) {
+    if (this.mesh) return;
+    const g = new THREE.Group();
+    const t = this.type;
+    const colorNum = (typeof this.color === 'number') ? this.color : 0xc83030;
+    const accentNum = (typeof this.accent === 'number') ? this.accent : 0x801818;
+    // Germans RED
+    const ENEMY_COLOR = 0xc83030;
+    const ENEMY_ACCENT = 0x801818;
+    if (t === 'tank') {
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(this.r * 2.2, 14, this.r * 2.6), new THREE.MeshLambertMaterial({ color: 0x7a3030 }));
+      hull.position.y = 7; g.add(hull);
+      const turret = new THREE.Mesh(new THREE.BoxGeometry(this.r * 1.4, 10, this.r * 1.8), new THREE.MeshLambertMaterial({ color: 0x901818 }));
+      turret.position.y = 18; g.add(turret);
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, this.r * 1.8, 8), new THREE.MeshLambertMaterial({ color: 0x1a1008 }));
+      barrel.rotation.x = Math.PI/2; barrel.position.set(0, 18, this.r); g.add(barrel);
+    } else if (t === 'mg_nest') {
+      const bunker = new THREE.Mesh(new THREE.BoxGeometry(this.r * 2.4, 20, this.r * 2.0), new THREE.MeshLambertMaterial({ color: 0x5a5048 }));
+      bunker.position.y = 10; g.add(bunker);
+      const slit = new THREE.Mesh(new THREE.BoxGeometry(this.r * 1.8, 6, 2), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+      slit.position.set(0, 12, this.r * 1.0); g.add(slit);
+    } else {
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(this.r * 0.85, this.r * 0.85, 26, 12),
+        new THREE.MeshLambertMaterial({ color: ENEMY_COLOR }));
+      body.position.y = 13; g.add(body);
+      const helm = new THREE.Mesh(new THREE.SphereGeometry(this.r * 0.85, 12, 8, 0, Math.PI*2, 0, Math.PI/2),
+        new THREE.MeshLambertMaterial({ color: ENEMY_ACCENT }));
+      helm.position.y = 26; helm.scale.y = 0.5; helm.scale.x = 1.05; helm.scale.z = 1.05; g.add(helm);
+      const gun = new THREE.Mesh(new THREE.BoxGeometry(4, 4, this.r * 1.4),
+        new THREE.MeshLambertMaterial({ color: 0x1a1008 }));
+      gun.position.set(0, 16, -this.r * 0.7); g.add(gun);
+    }
+    // Shadow
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(this.r * 1.1, 14), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 }));
+    shadow.rotation.x = -Math.PI/2; shadow.position.y = 0.2; g.add(shadow);
+    scene.add(g);
+    this.mesh = g;
+    this.attachedScene = scene;
+  }
+  syncMesh(scene) {
+    if (!this.mesh) this.ensureMesh(scene);
+    if (this.dead) {
+      if (this.mesh && this.attachedScene) {
+        this.attachedScene.remove(this.mesh);
+        this.mesh = null;
+      }
+      return;
+    }
+    this.mesh.position.set(this.x, 0, this.y);
+    this.mesh.rotation.y = -this.facing - Math.PI/2;
+    if (this.hitFlash > 0) {
+      this.mesh.children[0].material.color.setHex(0xffffff);
+    } else {
+      // Reset to original color (cheap: detect by type)
+      const orig = (this.type === 'tank') ? 0x7a3030 : (this.type === 'mg_nest') ? 0x5a5048 : 0xc83030;
+      this.mesh.children[0].material.color.setHex(orig);
     }
   }
   update(dt, game) {
@@ -1452,6 +1709,24 @@ class Bullet {
     this.pierce = false;
     this.trail = false;
     this.hitSet = new Set();
+    this.mesh = null;
+  }
+  syncMesh(scene) {
+    if (!this.mesh) {
+      const colHex = parseInt((this.color+'').replace('#',''), 16) || 0xffd95a;
+      this.mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(this.size * 1.4, 8, 6),
+        new THREE.MeshBasicMaterial({ color: colHex })
+      );
+      scene.add(this.mesh);
+      this._scene = scene;
+    }
+    if (this.life <= 0) {
+      this._scene && this._scene.remove(this.mesh);
+      this.mesh = null;
+      return;
+    }
+    this.mesh.position.set(this.x, 12, this.y);
   }
   update(dt, game) {
     this.x += this.vx * dt;
@@ -1564,6 +1839,28 @@ class Particle {
     this.x = x; this.y = y;
     this.vx = rand(-30, 30); this.vy = rand(-30, 30);
     this.color = color; this.size = size; this.life = life; this.maxLife = life;
+    this.mesh = null;
+  }
+  syncMesh(scene) {
+    if (!this.mesh) {
+      let colHex = 0xffd95a;
+      if (typeof this.color === 'string' && this.color.startsWith('#')) {
+        colHex = parseInt(this.color.slice(1), 16);
+      }
+      this.mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(this.size, 6, 5),
+        new THREE.MeshBasicMaterial({ color: colHex, transparent: true, opacity: 1 })
+      );
+      scene.add(this.mesh);
+      this._scene = scene;
+    }
+    if (this.life <= 0) {
+      this._scene && this._scene.remove(this.mesh);
+      this.mesh = null;
+      return;
+    }
+    this.mesh.position.set(this.x, 6, this.y);
+    this.mesh.material.opacity = clamp(this.life / this.maxLife, 0, 1);
   }
   update(dt) {
     this.x += this.vx * dt;
@@ -1589,13 +1886,27 @@ function setupInput() {
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
 
-  // Mouse for manual aim + fire
+  // Mouse for manual aim + fire — project screen coords to world via raycast on ground
+  function updateMouseWorld(e) {
+    if (!game || !game.raycaster || !game.camera || !game.groundMesh) {
+      mouseX = e.clientX; mouseY = e.clientY; return;
+    }
+    const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+    const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
+    game.tmpVec2.set(ndcX, ndcY);
+    game.raycaster.setFromCamera(game.tmpVec2, game.camera);
+    const hits = game.raycaster.intersectObject(game.groundMesh);
+    if (hits.length) {
+      mouseX = hits[0].point.x;
+      mouseY = hits[0].point.z;
+    }
+  }
   if (canvas) {
-    canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+    canvas.addEventListener('mousemove', updateMouseWorld);
     canvas.addEventListener('mousedown', e => {
       e.preventDefault();
       mouseDown = true;
-      mouseX = e.clientX; mouseY = e.clientY;
+      updateMouseWorld(e);
     });
     canvas.addEventListener('mouseup', () => { mouseDown = false; });
     canvas.addEventListener('mouseleave', () => { mouseDown = false; });
