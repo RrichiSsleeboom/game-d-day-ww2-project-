@@ -2473,3 +2473,30 @@ html, body { height: 100%; overscroll-behavior: none; }
   color: #5a4a30;
   font-family: monospace;
 }
+
+/* v20+ — manual aim: right-stick + custom crosshair cursor */
+.dday-touch-stick-right {
+  left: auto !important;
+  right: 1.5rem;
+}
+.dday-touch-stick-right .dday-touch-knob {
+  background: rgba(232, 80, 60, 0.75);
+}
+
+.dday-crosshair-cur {
+  position: fixed;
+  width: 30px; height: 30px;
+  margin-left: -15px; margin-top: -15px;
+  pointer-events: none;
+  z-index: 9;
+}
+.dday-crosshair-cur::before, .dday-crosshair-cur::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 235, 100, 0.95);
+  box-shadow: 0 0 4px rgba(255, 235, 100, 0.9), 0 0 1px rgba(0,0,0,0.8);
+}
+.dday-crosshair-cur::before { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+.dday-crosshair-cur::after  { top: 0; left: 50%; width: 2px; height: 100%; transform: translateX(-50%); }
+.dday-play #dday-canvas { cursor: none; }
+@media (pointer: coarse) { .dday-crosshair-cur { display: none; } }

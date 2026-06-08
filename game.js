@@ -6,7 +6,7 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
-const BUILD_VERSION = 'v20 · v5-revert';
+const BUILD_VERSION = 'v21 · manual aim';
 console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;font-weight:bold');
 
 (function () {
@@ -317,8 +317,8 @@ function renderTitle() {
         </div>
         <button class="dday-btn dday-btn-primary" data-go="role">Deploy →</button>
         <div class="dday-title-hint">
-          <kbd>WASD</kbd> or <kbd>↑←↓→</kbd> to move · auto-aim · <kbd>Q</kbd> or <kbd>Space</kbd> for special<br>
-          Touch screen? You'll get a joystick.
+          <kbd>WASD</kbd> move · <kbd>Mouse</kbd> aim · <kbd>Click</kbd> fire · <kbd>Q</kbd> ability<br>
+          Touch: left stick moves, right stick aims & fires
         </div>
         <div class="dday-build">build ${BUILD_VERSION}</div>
       </div>
@@ -476,6 +476,9 @@ let game; // game instance
 let gameLoopId = 0;
 let lastFrame = 0;
 let keys = {};
+let mouseX = 0, mouseY = 0;
+let mouseDown = false;
+let touchAim = { active: false, x: 0, y: 0, fire: false };
 let touch = { active: false, baseX: 0, baseY: 0, x: 0, y: 0, special: false };
 
 function startGameplay() {
@@ -513,8 +516,12 @@ function startGameplay() {
         <div class="dday-touch-stick" id="dday-stick">
           <div class="dday-touch-knob" id="dday-knob"></div>
         </div>
+        <div class="dday-touch-stick dday-touch-stick-right" id="dday-aim-stick">
+          <div class="dday-touch-knob" id="dday-aim-knob"></div>
+        </div>
         <button class="dday-touch-ability" id="dday-touch-ability">${r.icon}</button>
       </div>
+      <div class="dday-crosshair-cur" id="dday-crosshair-cur"></div>
       <button class="dday-pause" id="dday-pause">⏸</button>
       <div class="dday-toast" id="dday-toast"></div>
     </section>
@@ -744,14 +751,26 @@ class Game {
     for (const f of this.floats) { f.life -= dt; f.y -= dt * 40; }
     this.floats = this.floats.filter(f => f.life > 0);
 
-    // Player firing — auto-aim closest enemy in range
+    // Player firing — manual aim (mouse or right-stick)
     const r = this.player.role;
-    if (this.time * 1000 - this.lastShot >= r.fireRate) {
-      const target = this.closestEnemy(this.player, r.range);
-      if (target) {
-        this.fireFromPlayer(target);
-        this.lastShot = this.time * 1000;
+    // Determine aim direction
+    let aimAngle = this.player.facing;
+    if (touchAim.active) {
+      const tx = touchAim.x, ty = touchAim.y;
+      // touchAim.x/y is a unit vector from right-stick — convert to world angle
+      if (Math.abs(tx) > 0.05 || Math.abs(ty) > 0.05) {
+        aimAngle = Math.atan2(ty, tx);
       }
+    } else {
+      // Mouse: aim toward cursor in world coords
+      aimAngle = Math.atan2(mouseY - this.player.y, mouseX - this.player.x);
+    }
+    this.player.facing = aimAngle;
+    // Fire if mouse held / touch fire pressed AND cooldown ready
+    const wantFire = mouseDown || touchAim.fire;
+    if (wantFire && this.time * 1000 - this.lastShot >= r.fireRate) {
+      this.fireFromPlayerAngle(aimAngle);
+      this.lastShot = this.time * 1000;
     }
 
     // Ability cooldown UI
@@ -803,10 +822,13 @@ class Game {
   }
 
   fireFromPlayer(target) {
-    const r = this.player.role;
     const dx = target.x - this.player.x;
     const dy = target.y - this.player.y;
-    let ang = Math.atan2(dy, dx);
+    this.fireFromPlayerAngle(Math.atan2(dy, dx));
+  }
+
+  fireFromPlayerAngle(ang) {
+    const r = this.player.role;
     if (r.spread) ang += rand(-r.spread, r.spread);
     this.player.facing = ang;
     const speed = r.bulletSpeed;
@@ -1566,6 +1588,72 @@ class Particle {
 function setupInput() {
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
+
+  // Mouse for manual aim + fire
+  if (canvas) {
+    canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+    canvas.addEventListener('mousedown', e => {
+      e.preventDefault();
+      mouseDown = true;
+      mouseX = e.clientX; mouseY = e.clientY;
+    });
+    canvas.addEventListener('mouseup', () => { mouseDown = false; });
+    canvas.addEventListener('mouseleave', () => { mouseDown = false; });
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  // Custom crosshair follows the mouse
+  const cur = document.getElementById('dday-crosshair-cur');
+  if (cur) {
+    document.addEventListener('mousemove', e => {
+      cur.style.left = e.clientX + 'px';
+      cur.style.top  = e.clientY + 'px';
+    });
+  }
+
+  // Right-stick touch aim (any drag on right half of screen aims + fires while held)
+  const aimStick = document.getElementById('dday-aim-stick');
+  const aimKnob = document.getElementById('dday-aim-knob');
+  if (aimStick && aimKnob) {
+    let aimId = null;
+    let aimCx = 0, aimCy = 0;
+    const RAD = 50;
+    function aimStart(e) {
+      const t = e.changedTouches[0];
+      aimId = t.identifier;
+      const rect = aimStick.getBoundingClientRect();
+      aimCx = rect.left + rect.width / 2;
+      aimCy = rect.top + rect.height / 2;
+      touchAim.active = true;
+      touchAim.fire = true;
+    }
+    function aimMove(e) {
+      if (aimId === null) return;
+      for (const t of e.changedTouches) {
+        if (t.identifier === aimId) {
+          let dx = t.clientX - aimCx;
+          let dy = t.clientY - aimCy;
+          const len = Math.hypot(dx, dy);
+          if (len > RAD) { dx = dx / len * RAD; dy = dy / len * RAD; }
+          aimKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+          touchAim.x = dx / RAD; touchAim.y = dy / RAD;
+        }
+      }
+    }
+    function aimEnd(e) {
+      for (const t of e.changedTouches) {
+        if (t.identifier === aimId) {
+          aimId = null;
+          aimKnob.style.transform = 'translate(0,0)';
+          touchAim.active = false; touchAim.x = 0; touchAim.y = 0;
+          touchAim.fire = false;
+        }
+      }
+    }
+    aimStick.addEventListener('touchstart', e => { e.preventDefault(); aimStart(e); }, { passive: false });
+    window.addEventListener('touchmove', aimMove, { passive: false });
+    window.addEventListener('touchend', aimEnd);
+    window.addEventListener('touchcancel', aimEnd);
+  }
 
   // Touch joystick
   const stick = document.getElementById('dday-stick');
