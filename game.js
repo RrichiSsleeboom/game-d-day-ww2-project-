@@ -6,7 +6,7 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
-const BUILD_VERSION = 'v22 · 3D';
+const BUILD_VERSION = 'v23 · debug';
 console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;font-weight:bold');
 
 (function () {
@@ -535,7 +535,13 @@ function startGameplay() {
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 
-  game = new Game(r, l);
+  try {
+    game = new Game(r, l);
+  } catch (err) {
+    console.error('[D-Day v23] Game constructor failed:', err);
+    canvas.outerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1rem;text-align:center;padding:2rem;background:#200;">Game failed to start:<br>' + (err.message||err) + '<br><br>Open the console (F12) for details.</div>';
+    return;
+  }
   setupInput();
 
   document.getElementById('dday-pause').addEventListener('click', () => {
@@ -627,6 +633,16 @@ class Game {
     ground.position.set(this.w / 2, 0, this.h / 2);
     this.scene.add(ground);
     this.groundMesh = ground;
+
+    // DEBUG: bright magenta marker at player spawn so we can always see SOMETHING
+    const debugMarker = new THREE.Mesh(
+      new THREE.BoxGeometry(80, 200, 80),
+      new THREE.MeshBasicMaterial({ color: 0xff00ff })
+    );
+    debugMarker.position.set(this.w / 2, 100, this.h * 0.78);
+    this.scene.add(debugMarker);
+    this._debugMarker = debugMarker;
+    console.log('[D-Day v23] scene built. ground=', ground, 'camera=', this.camera.position, 'marker=', debugMarker.position);
 
     // Level-specific decor (water band etc.)
     this.buildLevelDecor();
@@ -1115,8 +1131,14 @@ class Game {
     this.camera.position.z = lerp(this.camera.position.z, py + camPullback + shakeZ, 0.18);
     this.camera.lookAt(px, 0, py);
     // Render
-    this.renderer.render(this.scene, this.camera);
-    // 2D HUD overlay: floating damage numbers go through HTML toast / hud; skip canvas draw
+    try {
+      this.renderer.render(this.scene, this.camera);
+    } catch (err) {
+      if (!this._loggedRenderError) {
+        console.error('[D-Day v23] render error:', err);
+        this._loggedRenderError = true;
+      }
+    }
   }
 
   syncPickupMesh(p) {
