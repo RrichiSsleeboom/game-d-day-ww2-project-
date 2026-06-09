@@ -6,7 +6,11 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
-const BUILD_VERSION = 'v27 · stable 2D';
+const BUILD_VERSION = 'v28 · 3D';
+
+// Convert pixel-space (px,py) to world-space (x,z) centred on the field.
+// Player roughly at (0, 0) in 3D, scale 25 px = 1 unit.
+const W_SCALE = 25;
 console.log('%c[D-DAY: Beach Assault] build ' + BUILD_VERSION, 'color:#d4a13a;font-weight:bold');
 
 (function () {
@@ -472,6 +476,7 @@ function renderBriefing() {
 // ============================================================
 
 let canvas, ctx;
+let canvas3d;  // separate canvas for Three.js WebGL rendering
 let game; // game instance
 let gameLoopId = 0;
 let lastFrame = 0;
@@ -487,6 +492,7 @@ function startGameplay() {
 
   app.innerHTML = `
     <section class="dday-screen dday-play">
+      <canvas id="dday-canvas-3d"></canvas>
       <canvas id="dday-canvas"></canvas>
       <div class="dday-hud">
         <div class="dday-hud-top">
@@ -528,11 +534,18 @@ function startGameplay() {
   `;
 
   canvas = document.getElementById('dday-canvas');
+  canvas3d = document.getElementById('dday-canvas-3d');
   ctx = canvas.getContext('2d');
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 
-  game = new Game(r, l);
+  try {
+    game = new Game(r, l);
+  } catch (err) {
+    console.error('[D-Day v28] Game init failed:', err);
+    showFatalError('init', err);
+    return;
+  }
   setupInput();
 
   document.getElementById('dday-pause').addEventListener('click', () => {
@@ -550,16 +563,41 @@ function resizeCanvas() {
   canvas.height = window.innerHeight * dpr;
   canvas.style.width = window.innerWidth + 'px';
   canvas.style.height = window.innerHeight + 'px';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (game && game.use3D && game.renderer && game.camera) {
+    game.renderer.setSize(window.innerWidth, window.innerHeight);
+    game.camera.aspect = window.innerWidth / window.innerHeight;
+    game.camera.updateProjectionMatrix();
+  }
   if (game) game.onResize();
+}
+
+function showFatalError(phase, err) {
+  let panel = document.getElementById('dday-fatal');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'dday-fatal';
+    panel.style.cssText = 'position:fixed;inset:10vh 8vw;background:#200;color:#fff;border:3px solid #c83030;border-radius:12px;padding:1.5rem;z-index:9999;font-family:monospace;font-size:0.85rem;overflow:auto';
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML = '<h3 style="color:#ff6060;margin-bottom:1rem">Game error in ' + phase + '</h3>' +
+    '<div><b>' + (err && err.message ? err.message : err) + '</b></div>' +
+    '<pre style="margin-top:1rem;white-space:pre-wrap;font-size:0.75rem;color:#ffa">' + (err && err.stack ? err.stack : '') + '</pre>' +
+    '<button onclick="location.reload()" style="margin-top:1rem;padding:0.6rem 1rem;background:#c83030;color:#fff;border:0;border-radius:6px;cursor:pointer">Reload</button>';
 }
 
 function loop(now) {
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
   if (game && !game.paused) {
-    game.update(dt);
-    game.render(ctx);
+    try {
+      game.update(dt);
+      game.render(ctx);
+    } catch (err) {
+      console.error('[D-Day v28] loop error:', err);
+      showFatalError('frame', err);
+      return;
+    }
   }
   gameLoopId = requestAnimationFrame(loop);
 }
@@ -579,6 +617,10 @@ class Game {
     this.shake = 0;
     this.shakeMag = 0;
     this.time = 0;
+
+    // --- 3D init (Three.js on canvas3d) ---
+    this.use3D = !!(window.THREE && canvas3d);
+    if (this.use3D) this.init3D();
 
     this.player = new Player(this.w / 2, this.h * 0.78, role);
     this.enemies = [];
@@ -602,6 +644,230 @@ class Game {
     this.abilityActive = 0;
 
     this.toast('Wave 1 incoming…', 1500);
+  }
+
+  // ---------------- 3D ----------------
+  init3D() {
+    console.log('[v28] init3D start');
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x9bb0c4);
+
+    const aspect = window.innerWidth / window.innerHeight;
+    this.camera = new THREE.PerspectiveCamera(55, aspect, 0.1, 300);
+    // Player will be near (0, 0, 0). Camera high and pulled back.
+    this.camera.position.set(0, 30, 22);
+    this.camera.lookAt(0, 0, 0);
+
+    this.renderer = new THREE.WebGLRenderer({ canvas: canvas3d, antialias: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+    this.scene.add(new THREE.AmbientLight(0xc0c8d0, 0.7));
+    const sun = new THREE.DirectionalLight(0xfff5d0, 1.1);
+    sun.position.set(8, 25, 8);
+    this.scene.add(sun);
+    this.scene.add(new THREE.HemisphereLight(0xc0d0e0, 0xa88060, 0.5));
+
+    // Ground covers the whole play area centered on world origin
+    const groundCol = this.colorOf(this.level.palette.sand);
+    const wM = this.w / W_SCALE, hM = this.h / W_SCALE;
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(wM * 1.5, hM * 1.5),
+      new THREE.MeshLambertMaterial({ color: groundCol })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    this.scene.add(ground);
+    this.groundMesh = ground;
+
+    if (this.level.terrain === 'beach') {
+      const water = new THREE.Mesh(
+        new THREE.PlaneGeometry(wM * 1.5, 8),
+        new THREE.MeshLambertMaterial({ color: this.colorOf(this.level.palette.water) })
+      );
+      water.rotation.x = -Math.PI / 2;
+      water.position.set(0, 0.05, hM / 2 - 1);
+      this.scene.add(water);
+    }
+
+    this.raycaster = new THREE.Raycaster();
+    this.ndc = new THREE.Vector2();
+    this.entMeshes = new WeakMap();
+    console.log('[v28] init3D OK; camera=', this.camera.position);
+  }
+  colorOf(s) {
+    if (typeof s === 'string' && s.startsWith('#')) return parseInt(s.slice(1), 16);
+    if (typeof s === 'number') return s;
+    return 0x808080;
+  }
+  // pixel x,y → 3D x (right), z (forward = -negative). Center of play area is origin.
+  px2x(px) { return (px - this.w / 2) / W_SCALE; }
+  px2z(py) { return (py - this.h / 2) / W_SCALE; }
+
+  ensureMesh3D(ent, kind) {
+    if (this.entMeshes.has(ent)) return this.entMeshes.get(ent);
+    let mesh;
+    if (kind === 'player') {
+      const g = new THREE.Group();
+      const bodyCol = this.colorOf(ent.role.color || '#3060a0');
+      const accCol = this.colorOf(ent.role.accent || '#5090d0');
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 1.5, 12),
+        new THREE.MeshLambertMaterial({ color: bodyCol }));
+      body.position.y = 0.75; g.add(body);
+      const helm = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 8, 0, Math.PI*2, 0, Math.PI/2),
+        new THREE.MeshLambertMaterial({ color: accCol }));
+      helm.position.y = 1.5; helm.scale.y = 0.6; g.add(helm);
+      const gun = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 1.4),
+        new THREE.MeshLambertMaterial({ color: 0x2a1a08 }));
+      gun.position.set(0, 0.9, -0.9); g.add(gun);
+      mesh = g;
+    } else if (kind === 'enemy') {
+      const g = new THREE.Group();
+      const t = ent.type;
+      if (t === 'mg_nest' || t === 'mg') {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 1.4),
+          new THREE.MeshLambertMaterial({ color: 0x6a3030 }));
+        body.position.y = 0.6; g.add(body);
+      } else if (t === 'tank') {
+        const hull = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.8, 2.6),
+          new THREE.MeshLambertMaterial({ color: 0x9a3030 }));
+        hull.position.y = 0.4; g.add(hull);
+        const turret = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 1.6),
+          new THREE.MeshLambertMaterial({ color: 0xb04040 }));
+        turret.position.y = 1.05; g.add(turret);
+      } else {
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 1.4, 10),
+          new THREE.MeshLambertMaterial({ color: 0xc83030 }));
+        body.position.y = 0.7; g.add(body);
+        const helm = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 8, 0, Math.PI*2, 0, Math.PI/2),
+          new THREE.MeshLambertMaterial({ color: 0x801818 }));
+        helm.position.y = 1.4; helm.scale.y = 0.5; g.add(helm);
+      }
+      mesh = g;
+    } else if (kind === 'bullet') {
+      const c = (typeof ent.color === 'string') ? this.colorOf(ent.color) : (ent.color || 0xffd95a);
+      mesh = new THREE.Mesh(new THREE.SphereGeometry(0.15, 6, 5), new THREE.MeshBasicMaterial({ color: c }));
+    } else if (kind === 'obstacle') {
+      const o = ent;
+      const r = (o.r || 20) / W_SCALE;
+      if (o.type === 'hedgehog') {
+        const g = new THREE.Group();
+        const m = new THREE.MeshLambertMaterial({ color: 0x2a1a0e });
+        const beam = new THREE.BoxGeometry(0.15, 0.15, r * 2.2);
+        const b1 = new THREE.Mesh(beam, m); b1.rotation.set(0, Math.PI/4, Math.PI/4); g.add(b1);
+        const b2 = new THREE.Mesh(beam, m); b2.rotation.set(0, -Math.PI/4, Math.PI/4); g.add(b2);
+        const b3 = new THREE.Mesh(beam, m); b3.rotation.x = Math.PI/2; g.add(b3);
+        mesh = g;
+      } else if (o.type === 'sandbag') {
+        const g = new THREE.Group();
+        const m = new THREE.MeshLambertMaterial({ color: 0xa89070 });
+        for (let i = 0; i < 3; i++) {
+          const bag = new THREE.Mesh(new THREE.BoxGeometry(r * 1.6, 0.25, 0.7), m);
+          bag.position.y = 0.12 + i * 0.25; g.add(bag);
+        }
+        mesh = g;
+      } else if (o.type === 'bush') {
+        mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8),
+          new THREE.MeshLambertMaterial({ color: 0x3a5a28 }));
+        mesh.position.y = r * 0.5;
+      } else if (o.type === 'rock') {
+        mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0),
+          new THREE.MeshLambertMaterial({ color: 0x807870 }));
+        mesh.position.y = r * 0.5;
+      } else if (o.type === 'wall') {
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(r*2, r*1.4, r*1.4),
+          new THREE.MeshLambertMaterial({ color: 0xa8a098 }));
+        mesh.position.y = r * 0.7;
+      } else if (o.type === 'bunker') {
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(r*2, r*1.5, r*1.6),
+          new THREE.MeshLambertMaterial({ color: 0x5a5048 }));
+        mesh.position.y = r * 0.75;
+      } else {
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(r, r, r),
+          new THREE.MeshLambertMaterial({ color: 0x808080 }));
+      }
+    } else if (kind === 'particle') {
+      const c = (typeof ent.color === 'string') ? this.colorOf(ent.color) : 0xffd95a;
+      mesh = new THREE.Mesh(new THREE.SphereGeometry((ent.size || 4) / W_SCALE, 5, 4),
+        new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 1 }));
+    } else if (kind === 'pickup') {
+      mesh = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.7),
+        new THREE.MeshLambertMaterial({ color: ent.type === 'medkit' ? 0xf0e8d0 : 0xc89040 }));
+    }
+    if (mesh) { this.scene.add(mesh); this.entMeshes.set(ent, mesh); }
+    return mesh;
+  }
+
+  removeMesh3D(ent) {
+    const m = this.entMeshes.get(ent);
+    if (m) { this.scene.remove(m); this.entMeshes.delete(ent); }
+  }
+
+  render3D() {
+    if (!this.use3D) return;
+    // Player
+    const pm = this.ensureMesh3D(this.player, 'player');
+    if (pm) {
+      pm.position.x = this.px2x(this.player.x);
+      pm.position.z = this.px2z(this.player.y);
+      pm.position.y = Math.abs(Math.sin(this.player.step || 0)) * 0.08;
+      pm.rotation.y = -this.player.facing - Math.PI / 2;
+    }
+    // Enemies
+    for (const e of this.enemies) {
+      const m = this.ensureMesh3D(e, 'enemy');
+      if (!m) continue;
+      m.position.x = this.px2x(e.x);
+      m.position.z = this.px2z(e.y);
+      m.rotation.y = -e.facing - Math.PI / 2;
+      if (e.dead) this.removeMesh3D(e);
+    }
+    // Obstacles (place once)
+    for (const o of this.obstacles) {
+      const m = this.ensureMesh3D(o, 'obstacle');
+      if (m && !o._placed3d) {
+        m.position.x = this.px2x(o.x);
+        m.position.z = this.px2z(o.y);
+        o._placed3d = true;
+      }
+    }
+    // Bullets
+    for (const b of this.bullets) {
+      const m = this.ensureMesh3D(b, 'bullet');
+      if (!m) continue;
+      m.position.x = this.px2x(b.x);
+      m.position.y = 0.55;
+      m.position.z = this.px2z(b.y);
+      if (b.life <= 0) this.removeMesh3D(b);
+    }
+    // Particles
+    for (const p of this.particles) {
+      const m = this.ensureMesh3D(p, 'particle');
+      if (!m) continue;
+      m.position.x = this.px2x(p.x);
+      m.position.y = 0.4;
+      m.position.z = this.px2z(p.y);
+      m.material.opacity = clamp(p.life / p.maxLife, 0, 1);
+      if (p.life <= 0) this.removeMesh3D(p);
+    }
+    // Pickups
+    for (const pk of this.pickups) {
+      const m = this.ensureMesh3D(pk, 'pickup');
+      if (!m) continue;
+      m.position.x = this.px2x(pk.x);
+      m.position.y = 0.4 + Math.sin((pk.bob || 0) * 3) * 0.15;
+      m.position.z = this.px2z(pk.y);
+      if (pk.taken) this.removeMesh3D(pk);
+    }
+    // Camera follow
+    const px = this.px2x(this.player.x);
+    const pz = this.px2z(this.player.y);
+    const targetX = px;
+    const targetZ = pz + 22;
+    this.camera.position.x = lerp(this.camera.position.x, targetX, 0.18);
+    this.camera.position.z = lerp(this.camera.position.z, targetZ, 0.18);
+    this.camera.position.y = 30;
+    this.camera.lookAt(px, 0, pz);
+    this.renderer.render(this.scene, this.camera);
   }
 
   toast(msg, dur) {
@@ -967,6 +1233,12 @@ class Game {
 
   // ---- RENDER ----
   render(ctx) {
+    if (this.use3D) {
+      // Clear the 2D foreground canvas (we just need the cursor crosshair) and render 3D.
+      if (ctx) ctx.clearRect(0, 0, this.w * (window.devicePixelRatio||1), this.h * (window.devicePixelRatio||1));
+      this.render3D();
+      return;
+    }
     const W = this.w, H = this.h;
     let sx = 0, sy = 0;
     if (this.shake > 0) {
@@ -1591,7 +1863,21 @@ function setupInput() {
 
   // Mouse for manual aim + fire
   if (canvas) {
-    canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+    canvas.addEventListener('mousemove', e => {
+      if (game && game.use3D && game.raycaster && game.groundMesh) {
+        const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+        const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
+        game.ndc.set(ndcX, ndcY);
+        game.raycaster.setFromCamera(game.ndc, game.camera);
+        const hits = game.raycaster.intersectObject(game.groundMesh);
+        if (hits.length) {
+          mouseX = hits[0].point.x * W_SCALE + game.w / 2;
+          mouseY = hits[0].point.z * W_SCALE + game.h / 2;
+          return;
+        }
+      }
+      mouseX = e.clientX; mouseY = e.clientY;
+    });
     canvas.addEventListener('mousedown', e => {
       e.preventDefault();
       mouseDown = true;

@@ -2500,3 +2500,20 @@ html, body { height: 100%; overscroll-behavior: none; }
 .dday-crosshair-cur::after  { top: 0; left: 50%; width: 2px; height: 100%; transform: translateX(-50%); }
 .dday-play #dday-canvas { cursor: none; }
 @media (pointer: coarse) { .dday-crosshair-cur { display: none; } }
+
+/* v28 — 3D canvas stacked behind the 2D canvas */
+#dday-canvas-3d {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1;
+  display: block;
+}
+.dday-play #dday-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: transparent;
+  pointer-events: auto;
+}
