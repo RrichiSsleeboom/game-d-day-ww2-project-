@@ -6,7 +6,7 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
-const BUILD_VERSION = 'v28 · 3D';
+const BUILD_VERSION = 'v29 · 3D';
 
 // Convert pixel-space (px,py) to world-space (x,z) centred on the field.
 // Player roughly at (0, 0) in 3D, scale 25 px = 1 unit.
@@ -273,6 +273,7 @@ const app = document.getElementById('app');
 function rand(min, max) { return Math.random() * (max - min) + min; }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
 function dist2(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return dx * dx + dy * dy; }
 function dist(a, b) { return Math.sqrt(dist2(a, b)); }
 function angleTo(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
