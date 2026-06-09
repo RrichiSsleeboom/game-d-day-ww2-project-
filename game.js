@@ -6,7 +6,7 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
-const BUILD_VERSION = 'v24 · 3D';
+const BUILD_VERSION = 'v25 · debug-3d';
 
 // World→3D scale: 3D scene works in metres; v21 logic stays in pixels.
 // Divide pixel positions by this to place 3D meshes.
@@ -532,9 +532,11 @@ function startGameplay() {
   `;
 
   canvas = document.getElementById('dday-canvas');
-  // 3D path: Three.js takes the canvas as a WebGL context.
-  // 2D path (no Three.js): fall back to canvas 2d context.
-  if (!window.THREE) ctx = canvas.getContext('2d');
+  console.log('[D-Day v25] startGameplay. canvas:', canvas, 'THREE loaded:', !!window.THREE);
+  if (!window.THREE) {
+    document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;top:0;left:0;right:0;background:#c83030;color:#fff;padding:0.5rem;text-align:center;z-index:9999;font-weight:bold">⚠ Three.js CDN failed to load — running in 2D fallback. Check your internet.</div>');
+    ctx = canvas.getContext('2d');
+  }
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 
@@ -629,8 +631,9 @@ class Game {
 
   // ---------- 3D SETUP ----------
   init3D() {
+    console.log('[D-Day v25] init3D start. THREE:', !!window.THREE, 'canvas:', canvas);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xa8b8c8);
+    scene.background = new THREE.Color(0xff3333);  // BRIGHT RED clear — impossible to miss if renderer runs
     this.scene = scene;
 
     // Camera placed high and pulled back; values in world metres (pixels/W_SCALE).
@@ -638,6 +641,7 @@ class Game {
     this.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.5, 500);
     this.camera.position.set(wM / 2, 35, hM * 0.78 + 22);
     this.camera.lookAt(wM / 2, 0, hM * 0.78);
+    console.log('[D-Day v25] camera at', this.camera.position, 'looking at', wM/2, 0, hM*0.78);
 
     // Renderer attached to the existing canvas
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -662,6 +666,19 @@ class Game {
     ground.position.set(wM / 2, 0, hM / 2);
     scene.add(ground);
     this.groundMesh = ground;
+
+    // DEBUG: huge bright magenta tower next to the player so we know geometry renders
+    const towerGeo = new THREE.BoxGeometry(8, 20, 8);
+    const towerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+    const tower = new THREE.Mesh(towerGeo, towerMat);
+    tower.position.set(wM / 2, 10, hM * 0.78);
+    scene.add(tower);
+
+    // DEBUG: bright green sphere at world origin
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(5, 12, 8), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+    orb.position.set(0, 5, 0);
+    scene.add(orb);
+    console.log('[D-Day v25] debug tower + orb added at', tower.position, orb.position);
 
     // Level-specific water plane (beach levels only)
     if (this.level.terrain === 'beach') {
@@ -790,6 +807,7 @@ class Game {
 
   render3D() {
     if (!this.use3D) return;
+    if (!this._loggedFirstRender) { console.log('[D-Day v25] first render3D call'); this._loggedFirstRender = true; }
     // Player
     const pm = this.ensureMesh(this.player, 'player');
     if (pm) {
