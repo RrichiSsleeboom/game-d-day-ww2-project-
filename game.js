@@ -6,7 +6,7 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
-const BUILD_VERSION = 'v25 · debug-3d';
+const BUILD_VERSION = 'v26 · catch-all';
 
 // World→3D scale: 3D scene works in metres; v21 logic stays in pixels.
 // Divide pixel positions by this to place 3D meshes.
@@ -579,10 +579,36 @@ function loop(now) {
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
   if (game && !game.paused) {
-    game.update(dt);
-    game.render(ctx);
+    try {
+      game.update(dt);
+    } catch (err) {
+      showFatalError('update', err);
+      return;
+    }
+    try {
+      game.render(ctx);
+    } catch (err) {
+      showFatalError('render', err);
+      return;
+    }
   }
   gameLoopId = requestAnimationFrame(loop);
+}
+
+function showFatalError(phase, err) {
+  console.error('[D-Day v26] fatal in ' + phase + ':', err);
+  if (gameLoopId) { cancelAnimationFrame(gameLoopId); gameLoopId = 0; }
+  let panel = document.getElementById('dday-fatal');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'dday-fatal';
+    panel.style.cssText = 'position:fixed;inset:10vh 10vw;background:#200;color:#fff;border:3px solid #c83030;border-radius:12px;padding:1.5rem;z-index:9999;font-family:monospace;font-size:0.85rem;overflow:auto';
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML = '<h3 style="color:#ff6060;margin-bottom:1rem">Game error in ' + phase + '</h3>'
+    + '<div><b>' + (err && err.message ? err.message : err) + '</b></div>'
+    + '<pre style="margin-top:1rem;white-space:pre-wrap;font-size:0.75rem;color:#ffa">' + (err && err.stack ? err.stack : '') + '</pre>'
+    + '<button onclick="location.reload()" style="margin-top:1rem;padding:0.6rem 1rem;background:#c83030;color:#fff;border:0;border-radius:6px;cursor:pointer">Reload</button>';
 }
 
 // ============================================================
@@ -603,7 +629,16 @@ class Game {
 
     // --- 3D scene setup (Three.js) ---
     this.use3D = !!window.THREE;
-    if (this.use3D) this.init3D();
+    if (this.use3D) {
+      try {
+        this.init3D();
+      } catch (err) {
+        console.error('[D-Day v26] init3D failed:', err);
+        showFatalError('init3D', err);
+        this.use3D = false;
+        ctx = canvas.getContext('2d');
+      }
+    }
 
     this.player = new Player(this.w / 2, this.h * 0.78, role);
     this.enemies = [];
@@ -633,7 +668,7 @@ class Game {
   init3D() {
     console.log('[D-Day v25] init3D start. THREE:', !!window.THREE, 'canvas:', canvas);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xff3333);  // BRIGHT RED clear — impossible to miss if renderer runs
+    scene.background = new THREE.Color(0xa8b8c8);  // sky
     this.scene = scene;
 
     // Camera placed high and pulled back; values in world metres (pixels/W_SCALE).
@@ -666,19 +701,6 @@ class Game {
     ground.position.set(wM / 2, 0, hM / 2);
     scene.add(ground);
     this.groundMesh = ground;
-
-    // DEBUG: huge bright magenta tower next to the player so we know geometry renders
-    const towerGeo = new THREE.BoxGeometry(8, 20, 8);
-    const towerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-    const tower = new THREE.Mesh(towerGeo, towerMat);
-    tower.position.set(wM / 2, 10, hM * 0.78);
-    scene.add(tower);
-
-    // DEBUG: bright green sphere at world origin
-    const orb = new THREE.Mesh(new THREE.SphereGeometry(5, 12, 8), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
-    orb.position.set(0, 5, 0);
-    scene.add(orb);
-    console.log('[D-Day v25] debug tower + orb added at', tower.position, orb.position);
 
     // Level-specific water plane (beach levels only)
     if (this.level.terrain === 'beach') {
