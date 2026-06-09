@@ -6,7 +6,7 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
-const BUILD_VERSION = 'v29 · 3D';
+const BUILD_VERSION = 'v30 · squad';
 
 // Convert pixel-space (px,py) to world-space (x,z) centred on the field.
 // Player roughly at (0, 0) in 3D, scale 25 px = 1 unit.
@@ -322,7 +322,7 @@ function renderTitle() {
         </div>
         <button class="dday-btn dday-btn-primary" data-go="role">Deploy →</button>
         <div class="dday-title-hint">
-          <kbd>WASD</kbd> move · <kbd>Mouse</kbd> aim · <kbd>Click</kbd> fire · <kbd>Q</kbd> ability<br>
+          <kbd>WASD</kbd> move · <kbd>Mouse</kbd> aim · <kbd>Click</kbd> fire · <kbd>Q</kbd> ability · <kbd>V</kbd> camera<br>
           Touch: left stick moves, right stick aims & fires
         </div>
         <div class="dday-build">build ${BUILD_VERSION}</div>
@@ -624,6 +624,24 @@ class Game {
     if (this.use3D) this.init3D();
 
     this.player = new Player(this.w / 2, this.h * 0.78, role);
+    // Allied squad — 8 GIs spawning around the player, running up the beach.
+    this.allies = [];
+    for (let i = 0; i < 8; i++) {
+      this.allies.push({
+        x: this.w / 2 + rand(-this.w * 0.25, this.w * 0.25),
+        y: this.h * 0.78 + rand(0, this.h * 0.18),
+        r: 14,
+        hp: 60, maxHp: 60,
+        facing: -Math.PI / 2,
+        speed: rand(70, 110),
+        targetY: rand(this.h * 0.25, this.h * 0.55),
+        lastShot: 0,
+        fireRate: rand(900, 1500),
+        dead: false,
+        wobble: rand(0, Math.PI * 2)
+      });
+    }
+    this.allyRespawnTimer = 4;
     this.enemies = [];
     this.bullets = [];
     this.particles = [];
@@ -692,7 +710,7 @@ class Game {
 
     this.raycaster = new THREE.Raycaster();
     this.ndc = new THREE.Vector2();
-    this.entMeshes = new WeakMap();
+    this.entMeshes = new Map();  // entity → 3D mesh
     console.log('[v28] init3D OK; camera=', this.camera.position);
   }
   colorOf(s) {
@@ -790,6 +808,18 @@ class Game {
       const c = (typeof ent.color === 'string') ? this.colorOf(ent.color) : 0xffd95a;
       mesh = new THREE.Mesh(new THREE.SphereGeometry((ent.size || 4) / W_SCALE, 5, 4),
         new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 1 }));
+    } else if (kind === 'ally') {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.3, 10),
+        new THREE.MeshLambertMaterial({ color: 0x3060a0 }));
+      body.position.y = 0.65; g.add(body);
+      const helm = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8, 0, Math.PI*2, 0, Math.PI/2),
+        new THREE.MeshLambertMaterial({ color: 0x5090d0 }));
+      helm.position.y = 1.3; helm.scale.y = 0.5; g.add(helm);
+      const gun = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 1.0),
+        new THREE.MeshLambertMaterial({ color: 0x2a1a08 }));
+      gun.position.set(0, 0.75, -0.6); g.add(gun);
+      mesh = g;
     } else if (kind === 'pickup') {
       mesh = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.7),
         new THREE.MeshLambertMaterial({ color: ent.type === 'medkit' ? 0xf0e8d0 : 0xc89040 }));
@@ -805,6 +835,21 @@ class Game {
 
   render3D() {
     if (!this.use3D) return;
+    // Clean up orphan meshes (entities removed from their array since last frame).
+    const live = new Set();
+    live.add(this.player);
+    for (const e of this.enemies) live.add(e);
+    for (const o of this.obstacles) live.add(o);
+    for (const b of this.bullets) live.add(b);
+    for (const p of this.particles) live.add(p);
+    for (const pk of this.pickups) live.add(pk);
+    if (this.allies) for (const a of this.allies) live.add(a);
+    for (const [ent, m] of this.entMeshes) {
+      if (!live.has(ent)) {
+        this.scene.remove(m);
+        this.entMeshes.delete(ent);
+      }
+    }
     // Player
     const pm = this.ensureMesh3D(this.player, 'player');
     if (pm) {
@@ -850,6 +895,17 @@ class Game {
       m.material.opacity = clamp(p.life / p.maxLife, 0, 1);
       if (p.life <= 0) this.removeMesh3D(p);
     }
+    // Allies
+    if (this.allies) {
+      for (const a of this.allies) {
+        const m = this.ensureMesh3D(a, 'ally');
+        if (!m) continue;
+        m.position.x = this.px2x(a.x);
+        m.position.z = this.px2z(a.y);
+        m.rotation.y = -a.facing - Math.PI / 2;
+        if (a.dead) this.removeMesh3D(a);
+      }
+    }
     // Pickups
     for (const pk of this.pickups) {
       const m = this.ensureMesh3D(pk, 'pickup');
@@ -859,15 +915,28 @@ class Game {
       m.position.z = this.px2z(pk.y);
       if (pk.taken) this.removeMesh3D(pk);
     }
-    // Camera follow
+    // Camera — top-down (default) or first-person (V toggles)
     const px = this.px2x(this.player.x);
     const pz = this.px2z(this.player.y);
-    const targetX = px;
-    const targetZ = pz + 22;
-    this.camera.position.x = lerp(this.camera.position.x, targetX, 0.18);
-    this.camera.position.z = lerp(this.camera.position.z, targetZ, 0.18);
-    this.camera.position.y = 30;
-    this.camera.lookAt(px, 0, pz);
+    if (this.fpv) {
+      // First-person: at the player's head, looking in their facing direction
+      const ang = this.player.facing;
+      const eyeX = px + Math.cos(ang) * 0.3;
+      const eyeZ = pz + Math.sin(ang) * 0.3;
+      this.camera.position.set(eyeX, 1.5, eyeZ);
+      const lookDist = 30;
+      this.camera.lookAt(eyeX + Math.cos(ang) * lookDist, 1.2, eyeZ + Math.sin(ang) * lookDist);
+      // hide player mesh in FPV so we don't see our own head
+      if (pm) pm.visible = false;
+    } else {
+      if (pm) pm.visible = true;
+      const targetX = px;
+      const targetZ = pz + 22;
+      this.camera.position.x = lerp(this.camera.position.x, targetX, 0.18);
+      this.camera.position.z = lerp(this.camera.position.z, targetZ, 0.18);
+      this.camera.position.y = 30;
+      this.camera.lookAt(px, 0, pz);
+    }
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -926,7 +995,7 @@ class Game {
   }
 
   spawnWave() {
-    const baseCount = 5 + this.wave;
+    const baseCount = 7 + this.wave * 2;  // bumped: a bit harder
     const count = Math.round(baseCount * this.level.enemyCount);
     for (let i = 0; i < count; i++) {
       const type = this.pickEnemyType();
@@ -1002,6 +1071,28 @@ class Game {
     for (const e of this.enemies) e.update(dt, this);
     this.enemies = this.enemies.filter(e => !e.dead);
 
+    // Allies — advance toward their targetY, shoot nearest enemy
+    if (this.allies) {
+      for (const a of this.allies) this.updateAlly(a, dt);
+      this.allies = this.allies.filter(a => !a.dead);
+      this.allyRespawnTimer -= dt;
+      if (this.allyRespawnTimer <= 0 && this.allies.length < 8) {
+        this.allyRespawnTimer = rand(2, 5);
+        this.allies.push({
+          x: rand(this.w * 0.2, this.w * 0.8),
+          y: this.h * 0.95,
+          r: 14, hp: 60, maxHp: 60,
+          facing: -Math.PI / 2,
+          speed: rand(70, 110),
+          targetY: rand(this.h * 0.25, this.h * 0.55),
+          lastShot: 0,
+          fireRate: rand(900, 1500),
+          dead: false,
+          wobble: rand(0, Math.PI * 2)
+        });
+      }
+    }
+
     // Bullets
     for (const b of this.bullets) b.update(dt, this);
     this.bullets = this.bullets.filter(b => b.life > 0);
@@ -1075,6 +1166,48 @@ class Game {
     } else {
       const bossEl = document.getElementById('dday-boss-bar');
       if (bossEl) bossEl.remove();
+    }
+  }
+
+  updateAlly(a, dt) {
+    if (a.dead) return;
+    // Advance up the beach until we reach our target line
+    if (a.y > a.targetY) {
+      a.y -= a.speed * dt;
+      a.facing = -Math.PI / 2;
+    } else {
+      // Find nearest enemy and shoot at it
+      let best = null, bestD2 = 350 * 350;
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        const dx = e.x - a.x, dy = e.y - a.y;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < bestD2) { best = e; bestD2 = d2; }
+      }
+      if (best) {
+        a.facing = Math.atan2(best.y - a.y, best.x - a.x);
+        const now = this.time * 1000;
+        if (now - a.lastShot > a.fireRate) {
+          a.lastShot = now;
+          const ang = a.facing + rand(-0.06, 0.06);
+          this.bullets.push(new Bullet(
+            a.x, a.y - 4,
+            Math.cos(ang) * 580, Math.sin(ang) * 580,
+            16, 'ally', '#ffd95a', 4, 0.7
+          ));
+        }
+      }
+    }
+    // Avoid obstacles minimally
+    for (const o of this.obstacles) {
+      if (!o.blocks) continue;
+      const dx = a.x - o.x, dy = a.y - o.y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      const minD = a.r + o.r * 0.8;
+      if (d < minD && d > 0) {
+        a.x = o.x + (dx / d) * minD;
+        a.y = o.y + (dy / d) * minD;
+      }
     }
   }
 
@@ -1743,7 +1876,7 @@ class Bullet {
       }
     }
 
-    if (this.owner === 'player') {
+    if (this.owner === 'player' || this.owner === 'ally') {
       for (const e of game.enemies) {
         if (e.dead) continue;
         if (this.hitSet.has(e)) continue;
@@ -1762,6 +1895,19 @@ class Bullet {
         game.damagePlayer(this.dmg);
         this.life = 0;
         return;
+      }
+      // hits allies too
+      if (game.allies) {
+        for (const a of game.allies) {
+          if (a.dead) continue;
+          const dx = this.x - a.x, dy = this.y - a.y;
+          if (dx*dx + dy*dy < (a.r + this.size) ** 2) {
+            a.hp -= this.dmg;
+            if (a.hp <= 0) a.dead = true;
+            this.life = 0;
+            return;
+          }
+        }
       }
     }
 
@@ -1997,6 +2143,10 @@ function onKeyDown(e) {
   const k = e.key.toLowerCase();
   keys[k] = true;
   if (k === 'q' || k === ' ') { e.preventDefault(); if (game) game.useAbility(); }
+  if (k === 'v') {
+    e.preventDefault();
+    if (game) { game.fpv = !game.fpv; game.toast(game.fpv ? 'First-person (V)' : 'Top-down (V)', 1200); }
+  }
   if (k === 'p' || k === 'escape') {
     if (game) { game.paused ? game.resume() : game.pause(); }
   }
