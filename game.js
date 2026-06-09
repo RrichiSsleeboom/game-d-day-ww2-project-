@@ -6,7 +6,7 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
-const BUILD_VERSION = 'v30 · squad';
+const BUILD_VERSION = 'v31 · full squad';
 
 // Convert pixel-space (px,py) to world-space (x,z) centred on the field.
 // Player roughly at (0, 0) in 3D, scale 25 px = 1 unit.
@@ -624,22 +624,16 @@ class Game {
     if (this.use3D) this.init3D();
 
     this.player = new Player(this.w / 2, this.h * 0.78, role);
-    // Allied squad — 8 GIs spawning around the player, running up the beach.
+    // Allied squad — one specialist per OTHER role + 3 generic riflemen,
+    // so every match has Medic / Sniper / Heavy / etc. fighting alongside you.
     this.allies = [];
-    for (let i = 0; i < 8; i++) {
-      this.allies.push({
-        x: this.w / 2 + rand(-this.w * 0.25, this.w * 0.25),
-        y: this.h * 0.78 + rand(0, this.h * 0.18),
-        r: 14,
-        hp: 60, maxHp: 60,
-        facing: -Math.PI / 2,
-        speed: rand(70, 110),
-        targetY: rand(this.h * 0.25, this.h * 0.55),
-        lastShot: 0,
-        fireRate: rand(900, 1500),
-        dead: false,
-        wobble: rand(0, Math.PI * 2)
-      });
+    const others = ROLE_ORDER.filter(id => id !== role.id);
+    for (let i = 0; i < others.length; i++) {
+      const otherRole = ROLES[others[i]];
+      this.allies.push(this.makeAlly(otherRole, 0.78 + i * 0.04));
+    }
+    for (let i = 0; i < 3; i++) {
+      this.allies.push(this.makeAlly(ROLES.rifleman, 0.85 + rand(-0.05, 0.05)));
     }
     this.allyRespawnTimer = 4;
     this.enemies = [];
@@ -919,17 +913,40 @@ class Game {
     const px = this.px2x(this.player.x);
     const pz = this.px2z(this.player.y);
     if (this.fpv) {
-      // First-person: at the player's head, looking in their facing direction
+      // First-person: at the player's head, looking in their facing direction.
       const ang = this.player.facing;
-      const eyeX = px + Math.cos(ang) * 0.3;
-      const eyeZ = pz + Math.sin(ang) * 0.3;
-      this.camera.position.set(eyeX, 1.5, eyeZ);
+      const eyeX = px;
+      const eyeZ = pz;
+      this.camera.position.set(eyeX, 1.6, eyeZ);
       const lookDist = 30;
-      this.camera.lookAt(eyeX + Math.cos(ang) * lookDist, 1.2, eyeZ + Math.sin(ang) * lookDist);
-      // hide player mesh in FPV so we don't see our own head
+      this.camera.lookAt(eyeX + Math.cos(ang) * lookDist, 1.4, eyeZ + Math.sin(ang) * lookDist);
+      // Hide own body in FPV — but keep / build a visible gun in front of camera
       if (pm) pm.visible = false;
+      if (!this.fpsGun) {
+        const g = new THREE.Group();
+        const stock = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 1.6),
+          new THREE.MeshLambertMaterial({ color: 0x4a3420 }));
+        stock.position.z = -0.8; g.add(stock);
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.9, 8),
+          new THREE.MeshLambertMaterial({ color: 0x1a1208 }));
+        barrel.rotation.x = Math.PI / 2;
+        barrel.position.z = -1.7; g.add(barrel);
+        this.scene.add(g);
+        this.fpsGun = g;
+      }
+      this.fpsGun.visible = true;
+      // Place gun slightly to the right + below the camera, pointing forward
+      const right = new THREE.Vector3(Math.sin(ang), 0, -Math.cos(ang));
+      const fwd = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang));
+      this.fpsGun.position.set(
+        eyeX + right.x * 0.35 + fwd.x * 0.4,
+        1.35,
+        eyeZ + right.z * 0.35 + fwd.z * 0.4
+      );
+      this.fpsGun.rotation.y = -ang - Math.PI / 2;
     } else {
       if (pm) pm.visible = true;
+      if (this.fpsGun) this.fpsGun.visible = false;
       const targetX = px;
       const targetZ = pz + 22;
       this.camera.position.x = lerp(this.camera.position.x, targetX, 0.18);
@@ -1169,33 +1186,98 @@ class Game {
     }
   }
 
+  // Spawn an ally tied to a specific role so each behaves like its specialism.
+  makeAlly(roleObj, yFraction) {
+    // Role-specific stats — sniper stays back, medic doesn't shoot enemies, etc.
+    let stopY = this.h * 0.4 + rand(-this.h * 0.06, this.h * 0.06);
+    if (roleObj.id === 'sniper') stopY = this.h * 0.6;       // sits back
+    else if (roleObj.id === 'medic') stopY = this.h * 0.55;
+    else if (roleObj.id === 'heavy') stopY = this.h * 0.45;
+    return {
+      x: this.w / 2 + rand(-this.w * 0.25, this.w * 0.25),
+      y: this.h * (yFraction || 0.78),
+      r: 14, hp: 80, maxHp: 80,
+      role: roleObj,
+      facing: -Math.PI / 2,
+      speed: rand(80, 130),
+      targetY: stopY,
+      lastShot: 0,
+      lastHeal: -9999,
+      fireRate: roleObj.fireRate || 800,
+      dead: false,
+      wobble: rand(0, Math.PI * 2)
+    };
+  }
+
   updateAlly(a, dt) {
     if (a.dead) return;
+    const now = this.time * 1000;
+    const roleId = a.role ? a.role.id : 'rifleman';
     // Advance up the beach until we reach our target line
     if (a.y > a.targetY) {
       a.y -= a.speed * dt;
       a.facing = -Math.PI / 2;
-    } else {
-      // Find nearest enemy and shoot at it
-      let best = null, bestD2 = 350 * 350;
-      for (const e of this.enemies) {
-        if (e.dead) continue;
-        const dx = e.x - a.x, dy = e.y - a.y;
+      return;
+    }
+    // Medic: find a wounded friendly (player or ally) within range and heal.
+    if (roleId === 'medic') {
+      let bestT = null, bestD2 = 220 * 220;
+      // Player needs healing?
+      if (this.player.hp < this.player.role.hp * 0.7) {
+        const dx = this.player.x - a.x, dy = this.player.y - a.y;
         const d2 = dx*dx + dy*dy;
-        if (d2 < bestD2) { best = e; bestD2 = d2; }
+        if (d2 < bestD2) { bestT = this.player; bestD2 = d2; }
       }
-      if (best) {
-        a.facing = Math.atan2(best.y - a.y, best.x - a.x);
-        const now = this.time * 1000;
-        if (now - a.lastShot > a.fireRate) {
-          a.lastShot = now;
-          const ang = a.facing + rand(-0.06, 0.06);
-          this.bullets.push(new Bullet(
-            a.x, a.y - 4,
-            Math.cos(ang) * 580, Math.sin(ang) * 580,
-            16, 'ally', '#ffd95a', 4, 0.7
-          ));
+      // Any wounded ally?
+      for (const other of this.allies) {
+        if (other === a || other.dead) continue;
+        if (other.hp >= other.maxHp * 0.7) continue;
+        const dx = other.x - a.x, dy = other.y - a.y;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < bestD2) { bestT = other; bestD2 = d2; }
+      }
+      if (bestT) {
+        a.facing = Math.atan2(bestT.y - a.y, bestT.x - a.x);
+        // Move closer to target
+        const d = Math.sqrt(bestD2);
+        if (d > 70) {
+          a.x += Math.cos(a.facing) * 100 * dt;
+          a.y += Math.sin(a.facing) * 100 * dt;
+        } else if (now - a.lastHeal > 1500) {
+          // Heal them
+          a.lastHeal = now;
+          const isPlayer = (bestT === this.player);
+          const maxHp = isPlayer ? bestT.role.hp : bestT.maxHp;
+          const heal = isPlayer ? 25 : 20;
+          bestT.hp = Math.min(maxHp, bestT.hp + heal);
+          if (isPlayer && this.updateHpHUD) this.updateHpHUD();
+          this.floats.push({ x: bestT.x, y: bestT.y - 28, text: '+' + heal, color: '#80ff80', life: 0.9 });
         }
+      }
+      return;
+    }
+    // Everyone else: shoot the nearest enemy
+    let best = null, bestD2 = 420 * 420;
+    if (roleId === 'sniper') bestD2 = 900 * 900;  // sniper has long reach
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const dx = e.x - a.x, dy = e.y - a.y;
+      const d2 = dx*dx + dy*dy;
+      if (d2 < bestD2) { best = e; bestD2 = d2; }
+    }
+    if (best) {
+      a.facing = Math.atan2(best.y - a.y, best.x - a.x);
+      if (now - a.lastShot > a.fireRate) {
+        a.lastShot = now;
+        const dmg = roleId === 'sniper' ? 60 : roleId === 'heavy' ? 22 : roleId === 'paratrooper' ? 12 : 18;
+        const spread = roleId === 'sniper' ? 0.005 : roleId === 'paratrooper' ? 0.08 : 0.05;
+        const speed = roleId === 'sniper' ? 900 : 600;
+        const ang = a.facing + rand(-spread, spread);
+        this.bullets.push(new Bullet(
+          a.x, a.y - 4,
+          Math.cos(ang) * speed, Math.sin(ang) * speed,
+          dmg, 'ally', '#ffd95a', 4, 0.8
+        ));
       }
     }
     // Avoid obstacles minimally
@@ -1734,9 +1816,22 @@ class Enemy {
       game.damagePlayer(this.damage * 0.6 * dt);
     }
 
-    // Ranged firing
-    if (this.fireRate > 0 && d < this.range && (game.time * 1000 - this.lastShot) > this.fireRate) {
-      const ang = angleTo(this, p);
+    // Ranged firing — target the player most of the time, sometimes an ally instead.
+    let target = p;
+    if (game.allies && game.allies.length > 0 && Math.random() < 0.45) {
+      // Pick the closest live ally as target
+      let bestA = null, bestD2 = this.range * this.range;
+      for (const ally of game.allies) {
+        if (ally.dead) continue;
+        const dx = ally.x - this.x, dy = ally.y - this.y;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < bestD2) { bestA = ally; bestD2 = d2; }
+      }
+      if (bestA) target = bestA;
+    }
+    const distToTarget = dist(this, target);
+    if (this.fireRate > 0 && distToTarget < this.range && (game.time * 1000 - this.lastShot) > this.fireRate) {
+      const ang = angleTo(this, target);
       if (this.shootingType === 'burst') {
         for (let i = 0; i < 3; i++) setTimeout(() => {
           if (this.dead) return;
