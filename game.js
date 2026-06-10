@@ -6,7 +6,7 @@
    (virtual joystick). Auto-aim — focus on movement & dodging.
    ============================================================ */
 
-const BUILD_VERSION = 'v31 · full squad';
+const BUILD_VERSION = 'v32 · polished';
 
 // Convert pixel-space (px,py) to world-space (x,z) centred on the field.
 // Player roughly at (0, 0) in 3D, scale 25 px = 1 unit.
@@ -607,6 +607,99 @@ function loop(now) {
 // GAME CLASS
 // ============================================================
 
+// ============================================================
+// AUDIO — synthesized SFX (no external assets)
+// ============================================================
+
+class GameAudio {
+  constructor() {
+    this.ctx = null;
+    this.master = null;
+    this.enabled = true;
+  }
+  ensureCtx() {
+    if (this.ctx) return this.ctx;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.5;
+      this.master.connect(this.ctx.destination);
+    } catch (e) {
+      this.enabled = false;
+    }
+    return this.ctx;
+  }
+  // sharp noisy crack with low-pass envelope
+  gunshot() {
+    if (!this.enabled) return;
+    const ctx = this.ensureCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+    const buf = ctx.createBuffer(1, 2205, 22050);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(2400, t);
+    lp.frequency.exponentialRampToValueAtTime(280, t + 0.08);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.55, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    src.connect(lp).connect(g).connect(this.master);
+    src.start(t);
+  }
+  hit() {
+    if (!this.enabled) return;
+    const ctx = this.ensureCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(620, t);
+    osc.frequency.exponentialRampToValueAtTime(180, t + 0.08);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.18, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+    osc.connect(g).connect(this.master);
+    osc.start(t); osc.stop(t + 0.12);
+  }
+  explode() {
+    if (!this.enabled) return;
+    const ctx = this.ensureCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+    const buf = ctx.createBuffer(1, 22050, 22050);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(800, t);
+    lp.frequency.exponentialRampToValueAtTime(80, t + 0.7);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.7, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+    src.connect(lp).connect(g).connect(this.master);
+    src.start(t);
+  }
+  hurt() {
+    if (!this.enabled) return;
+    const ctx = this.ensureCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.exponentialRampToValueAtTime(60, t + 0.15);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.25, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    osc.connect(g).connect(this.master);
+    osc.start(t); osc.stop(t + 0.22);
+  }
+}
+
 class Game {
   constructor(role, level) {
     this.role = role;
@@ -700,12 +793,52 @@ class Game {
       water.rotation.x = -Math.PI / 2;
       water.position.set(0, 0.05, hM / 2 - 1);
       this.scene.add(water);
+      // D-Day atmosphere: a row of Navy ships far out in the Channel
+      this.ships = [];
+      for (let i = -3; i <= 3; i++) {
+        const ship = new THREE.Group();
+        const hull = new THREE.Mesh(new THREE.BoxGeometry(8, 1.8, 24),
+          new THREE.MeshLambertMaterial({ color: 0x2a3a4a }));
+        hull.position.y = 0.9; ship.add(hull);
+        const bridge = new THREE.Mesh(new THREE.BoxGeometry(5, 2.5, 6),
+          new THREE.MeshLambertMaterial({ color: 0x3a4a5a }));
+        bridge.position.y = 2.8; ship.add(bridge);
+        const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 3, 8),
+          new THREE.MeshLambertMaterial({ color: 0x4a4a4a }));
+        funnel.position.y = 4.5; ship.add(funnel);
+        ship.position.set(i * 18 + rand(-3, 3), 0, hM * 0.6 + rand(0, 6));
+        ship.rotation.y = rand(-0.1, 0.1);
+        this.scene.add(ship);
+        this.ships.push(ship);
+      }
+      // Czech hedgehogs already scattered on beach, but add a few wrecked landing
+      // craft right at the surf line for that Saving-Private-Ryan opening look.
+      for (let i = 0; i < 3; i++) {
+        const lcvp = new THREE.Group();
+        const hull = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.4, 6),
+          new THREE.MeshLambertMaterial({ color: 0x4a5048 }));
+        hull.position.y = 0.7; lcvp.add(hull);
+        const ramp = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.2, 3),
+          new THREE.MeshLambertMaterial({ color: 0x3a3528 }));
+        ramp.position.set(0, 0.3, -3.5);
+        ramp.rotation.x = 0.5;
+        lcvp.add(ramp);
+        lcvp.position.set(rand(-wM * 0.4, wM * 0.4), 0, hM / 2 - 4 + rand(-2, 2));
+        lcvp.rotation.y = rand(-0.3, 0.3);
+        this.scene.add(lcvp);
+      }
     }
+
+    // Subtle distance fog for depth
+    this.scene.fog = new THREE.Fog(0x9bb0c4, 25, 95);
 
     this.raycaster = new THREE.Raycaster();
     this.ndc = new THREE.Vector2();
     this.entMeshes = new Map();  // entity → 3D mesh
-    console.log('[v28] init3D OK; camera=', this.camera.position);
+
+    // Web Audio for synthesized gunshots / hits / explosions
+    this.audio = new GameAudio();
+    console.log('[v32] init3D OK; camera=', this.camera.position);
   }
   colorOf(s) {
     if (typeof s === 'string' && s.startsWith('#')) return parseInt(s.slice(1), 16);
@@ -913,37 +1046,58 @@ class Game {
     const px = this.px2x(this.player.x);
     const pz = this.px2z(this.player.y);
     if (this.fpv) {
-      // First-person: at the player's head, looking in their facing direction.
-      const ang = this.player.facing;
+      // First-person: camera AT the player's head, look direction driven by mouselook
+      // (pointer lock yields lookYaw + lookPitch deltas). When mouselook isn't active,
+      // fall back to player.facing so the camera always points somewhere sensible.
+      let ang = (typeof this.lookYaw === 'number') ? this.lookYaw : this.player.facing;
+      const pitch = (typeof this.lookPitch === 'number') ? this.lookPitch : 0;
+      // Sync player.facing so bullets fly where the camera looks
+      this.player.facing = ang;
       const eyeX = px;
       const eyeZ = pz;
-      this.camera.position.set(eyeX, 1.6, eyeZ);
+      this.camera.position.set(eyeX, 1.7, eyeZ);
       const lookDist = 30;
-      this.camera.lookAt(eyeX + Math.cos(ang) * lookDist, 1.4, eyeZ + Math.sin(ang) * lookDist);
-      // Hide own body in FPV — but keep / build a visible gun in front of camera
+      this.camera.lookAt(
+        eyeX + Math.cos(ang) * lookDist,
+        1.7 + Math.sin(pitch) * lookDist,
+        eyeZ + Math.sin(ang) * lookDist
+      );
+      // Hide own body in FPV; show a forward-facing rifle
       if (pm) pm.visible = false;
       if (!this.fpsGun) {
         const g = new THREE.Group();
-        const stock = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 1.6),
+        const stock = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 1.4),
           new THREE.MeshLambertMaterial({ color: 0x4a3420 }));
-        stock.position.z = -0.8; g.add(stock);
-        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.9, 8),
+        stock.position.z = -0.7; g.add(stock);
+        const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.18, 0.5),
+          new THREE.MeshLambertMaterial({ color: 0x2a1a08 }));
+        receiver.position.z = -1.4; g.add(receiver);
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 8),
           new THREE.MeshLambertMaterial({ color: 0x1a1208 }));
         barrel.rotation.x = Math.PI / 2;
-        barrel.position.z = -1.7; g.add(barrel);
+        barrel.position.z = -2.2; g.add(barrel);
+        // Hands (gloved)
+        const handMat = new THREE.MeshLambertMaterial({ color: 0x5a4028 });
+        const hand1 = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.2, 0.3), handMat);
+        hand1.position.set(0.05, -0.05, -0.4); g.add(hand1);
+        const hand2 = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.2, 0.3), handMat);
+        hand2.position.set(-0.05, -0.05, -1.6); g.add(hand2);
         this.scene.add(g);
         this.fpsGun = g;
       }
       this.fpsGun.visible = true;
-      // Place gun slightly to the right + below the camera, pointing forward
+      // Place gun in front-right of the camera, attached to its orientation
       const right = new THREE.Vector3(Math.sin(ang), 0, -Math.cos(ang));
       const fwd = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang));
+      const recoilKick = this._fpsRecoil || 0;
       this.fpsGun.position.set(
-        eyeX + right.x * 0.35 + fwd.x * 0.4,
-        1.35,
-        eyeZ + right.z * 0.35 + fwd.z * 0.4
+        eyeX + right.x * 0.4 + fwd.x * (0.5 - recoilKick),
+        1.45,
+        eyeZ + right.z * 0.4 + fwd.z * (0.5 - recoilKick)
       );
       this.fpsGun.rotation.y = -ang - Math.PI / 2;
+      this.fpsGun.rotation.x = pitch * 0.5;
+      if (this._fpsRecoil > 0) this._fpsRecoil = Math.max(0, this._fpsRecoil - 0.02);
     } else {
       if (pm) pm.visible = true;
       if (this.fpsGun) this.fpsGun.visible = false;
@@ -1012,8 +1166,8 @@ class Game {
   }
 
   spawnWave() {
-    const baseCount = 7 + this.wave * 2;  // bumped: a bit harder
-    const count = Math.round(baseCount * this.level.enemyCount);
+    const baseCount = 10 + this.wave * 3;  // v32: more pressure
+    const count = Math.round(baseCount * this.level.enemyCount * 1.15);
     for (let i = 0; i < count; i++) {
       const type = this.pickEnemyType();
       const side = Math.floor(Math.random() * 3); // 0 top, 1 left, 2 right
@@ -1388,6 +1542,7 @@ class Game {
   hitEnemy(e, dmg, fromBullet) {
     e.hp -= dmg;
     e.hitFlash = 0.12;
+    if (this.audio && fromBullet && fromBullet.owner === 'player') this.audio.hit();
     if (fromBullet) {
       const ang = Math.atan2(fromBullet.vy, fromBullet.vx);
       e.x += Math.cos(ang) * 4;
@@ -1401,6 +1556,7 @@ class Game {
       e.dead = true;
       this.kills++;
       this.score += (e.boss ? 250 : (e.type === 'sniper' || e.type === 'mg' ? 30 : 15));
+      if (this.audio) (e.boss || e.type === 'tank') ? this.audio.explode() : this.audio.hit();
       for (let i = 0; i < 14; i++) this.particles.push(new Particle(e.x, e.y, this.level.palette.blood, rand(6, 14), rand(0.4, 0.8)));
       // Small chance to drop ammo (heals)
       if (Math.random() < 0.12) {
@@ -1414,6 +1570,7 @@ class Game {
     this.player.hp -= dmg;
     this.player.hitFlash = 0.18;
     this.shakeFx(6);
+    if (this.audio) this.audio.hurt();
     this.floats.push({ x: this.player.x + rand(-8, 8), y: this.player.y - 18, text: '-' + Math.ceil(dmg), color: '#ff5060', life: 0.7 });
     if (this.player.hp <= 0) this.lose();
   }
@@ -2106,6 +2263,22 @@ function setupInput() {
   // Mouse for manual aim + fire
   if (canvas) {
     canvas.addEventListener('mousemove', e => {
+      // FPV with pointer lock → mouse delta rotates the camera (true mouselook)
+      if (game && game.fpv && document.pointerLockElement === canvas) {
+        if (typeof game.lookYaw !== 'number') game.lookYaw = game.player ? game.player.facing : 0;
+        if (typeof game.lookPitch !== 'number') game.lookPitch = 0;
+        game.lookYaw   += (e.movementX || 0) * 0.0025;
+        game.lookPitch -= (e.movementY || 0) * 0.0025;
+        game.lookPitch = Math.max(-1.0, Math.min(1.0, game.lookPitch));
+        // Project a virtual aim point in front of the camera so the v21 firing code
+        // (which uses mouseX/mouseY in world pixels) shoots where you look.
+        const ang = game.lookYaw;
+        const aheadPx = 300;
+        mouseX = game.player.x + Math.cos(ang) * aheadPx;
+        mouseY = game.player.y + Math.sin(ang) * aheadPx;
+        return;
+      }
+      // Top-down: raycast cursor onto ground for world-space aim
       if (game && game.use3D && game.raycaster && game.groundMesh) {
         const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
         const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -2124,6 +2297,14 @@ function setupInput() {
       e.preventDefault();
       mouseDown = true;
       mouseX = e.clientX; mouseY = e.clientY;
+      // FPV: request pointer lock if not already
+      if (game && game.fpv && document.pointerLockElement !== canvas) {
+        canvas.requestPointerLock && canvas.requestPointerLock();
+      }
+      if (game) {
+        game._fpsRecoil = 0.3;
+        if (game.audio) game.audio.gunshot();
+      }
     });
     canvas.addEventListener('mouseup', () => { mouseDown = false; });
     canvas.addEventListener('mouseleave', () => { mouseDown = false; });
@@ -2240,7 +2421,18 @@ function onKeyDown(e) {
   if (k === 'q' || k === ' ') { e.preventDefault(); if (game) game.useAbility(); }
   if (k === 'v') {
     e.preventDefault();
-    if (game) { game.fpv = !game.fpv; game.toast(game.fpv ? 'First-person (V)' : 'Top-down (V)', 1200); }
+    if (game) {
+      game.fpv = !game.fpv;
+      if (game.fpv) {
+        game.lookYaw = game.player.facing;
+        game.lookPitch = 0;
+        if (canvas && canvas.requestPointerLock) canvas.requestPointerLock();
+        game.toast('First-person · click to lock mouse, Esc to release', 2000);
+      } else {
+        if (document.exitPointerLock) document.exitPointerLock();
+        game.toast('Top-down (V)', 1200);
+      }
+    }
   }
   if (k === 'p' || k === 'escape') {
     if (game) { game.paused ? game.resume() : game.pause(); }
